@@ -104,25 +104,32 @@ class OfflineEnforcer:
         self._custom_event = None
         self._handlers = []
 
-    def activate(self, app: adsk.core.Application) -> bool:
+    def activate(self, app: adsk.core.Application, retries: int = 0) -> bool:
         self._app = app
         logger = AuditLogger.instance()
+        import time
 
-        app.isOffLine = True
-        if not app.isOffLine:
+        for attempt in range(1 + retries):
+            app.isOffLine = True
+            if app.isOffLine:
+                break
             try:
                 app.executeTextCommand('Commands.Start WorkOfflineCommand')
-                import time
                 time.sleep(0.5)
             except Exception:
                 pass
-            if not app.isOffLine:
-                logger.log(
-                    'OFFLINE_FAILED',
-                    'Could not enable offline mode via any method',
-                    'CRITICAL'
-                )
-                return False
+            if app.isOffLine:
+                break
+            if attempt < retries:
+                time.sleep(min(1 * (2 ** attempt), 8))
+
+        if not app.isOffLine:
+            logger.log(
+                'OFFLINE_FAILED',
+                'Could not enable offline mode via any method',
+                'CRITICAL'
+            )
+            return False
 
         logger.log('OFFLINE_SET', 'Fusion offline mode activated')
 

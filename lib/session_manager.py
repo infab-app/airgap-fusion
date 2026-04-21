@@ -1,5 +1,10 @@
 import enum
+import re
 from typing import Optional, Set
+
+
+def is_default_document(doc_name: str) -> bool:
+    return bool(re.match(r'^Untitled\d*$', doc_name, re.IGNORECASE))
 
 
 class SessionState(enum.Enum):
@@ -77,6 +82,12 @@ class ITARSessionManager:
 
     def unexported_documents(self) -> Set[str]:
         return self._tracked_documents - self._exported_documents
+
+    def substantive_unexported_documents(self) -> Set[str]:
+        return {d for d in self.unexported_documents() if not is_default_document(d)}
+
+    def substantive_tracked_documents(self) -> Set[str]:
+        return {d for d in self._tracked_documents if not is_default_document(d)}
 
     def start_session(self, session_id: str, export_dir: str, start_time: str):
         self._session_id = session_id

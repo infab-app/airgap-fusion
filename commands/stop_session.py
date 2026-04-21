@@ -2,7 +2,7 @@ import traceback
 
 import adsk.core
 
-from lib.session_manager import ITARSessionManager, SessionState
+from lib.session_manager import ITARSessionManager, SessionState, is_default_document
 from lib.audit_logger import AuditLogger
 from lib.persistence import SessionPersistence
 from lib.ui_components import update_button_visibility
@@ -23,7 +23,7 @@ class StopSessionCommand(adsk.core.CommandCreatedEventHandler):
 
             tracked = session.tracked_documents
             exported = session.exported_documents
-            unexported = session.unexported_documents()
+            unexported = session.substantive_unexported_documents()
 
             status_lines = []
             for doc_name in sorted(tracked):
@@ -92,16 +92,16 @@ class StopSessionValidateHandler(adsk.core.ValidateInputsEventHandler):
 
             is_valid = True
 
-            if session.unexported_documents():
-                is_valid = False
-
             if not confirm_export.value:
                 is_valid = False
             if not confirm_cache.value:
                 is_valid = False
 
+            if session.substantive_unexported_documents():
+                is_valid = False
+
             app = adsk.core.Application.get()
-            for doc_name in session.tracked_documents:
+            for doc_name in session.substantive_tracked_documents():
                 for i in range(app.documents.count):
                     doc = app.documents.item(i)
                     if doc.name == doc_name:
@@ -131,11 +131,12 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                 )
                 return
 
-            if session.unexported_documents():
+            substantive_unexported = session.substantive_unexported_documents()
+            if substantive_unexported:
                 logger.log(
                     'DEACTIVATION_BLOCKED',
                     f'Attempted deactivation with unexported docs: '
-                    f'{session.unexported_documents()}',
+                    f'{substantive_unexported}',
                     'WARNING'
                 )
                 session.transition_to(SessionState.PROTECTED)

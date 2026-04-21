@@ -37,6 +37,7 @@ def create_ui(app: adsk.core.Application):
             config.CMD_STOP_SESSION,
             config.CMD_EXPORT_LOCAL,
             config.CMD_VIEW_LOG,
+            config.CMD_SETTINGS,
         ]
         for cmd_id in cmd_ids:
             if panel.controls.itemById(cmd_id):
@@ -97,5 +98,9 @@ def update_button_visibility(state: SessionState):
                 stop_ctrl.isVisible = is_protected
             if export_ctrl:
                 export_ctrl.isVisible = is_protected
+
+            settings_ctrl = panel.controls.itemById(config.CMD_SETTINGS)
+            if settings_ctrl:
+                settings_ctrl.isVisible = True
     except Exception:
         pass
