@@ -28,22 +28,36 @@ UNPROTECTED → ACTIVATING → PROTECTED → DEACTIVATING → UNPROTECTED
 
 ## Installation
 
-Copy the add-in folder to Fusion 360's add-ins directory:
+Clone or download this repository, then copy (or symlink) the entire repo into Fusion 360's add-ins directory so that `AirGap.py` and `AirGap.manifest` are inside the folder:
 
 **Windows:**
 ```
-%AppData%\Autodesk\Autodesk Fusion 360\API\AddIns\AirGap\
+git clone https://github.com/your-org/airgap-fusion.git
+xcopy /E airgap-fusion "%AppData%\Autodesk\Autodesk Fusion 360\API\AddIns\AirGap\"
 ```
 
 **macOS:**
 ```
-~/Library/Application Support/Autodesk/Application Plugins/AirGap/
+git clone https://github.com/your-org/airgap-fusion.git
+cp -R airgap-fusion ~/Library/Application\ Support/Autodesk/Application\ Plugins/AirGap
+```
+
+The resulting directory should look like:
+```
+AirGap/
+├── AirGap.py
+├── AirGap.manifest
+├── config.py
+├── lib/
+├── commands/
+├── resources/
+└── ...
 ```
 
 Then in Fusion 360:
 1. Open **Tools → Add-Ins** (or press `Shift+S`)
 2. Go to the **Add-Ins** tab
-3. Find **AirGap** in the list
+3. Click the green **+** icon and navigate to the `AirGap` folder (or it may appear automatically)
 4. Check **Run on Startup** (recommended)
 5. Click **Run**
 
