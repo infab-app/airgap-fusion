@@ -1,5 +1,6 @@
 import os
 import sys
+import threading
 import traceback
 
 import adsk.core
@@ -19,6 +20,10 @@ from commands.start_session import get_enforcer, get_interceptor
 
 _app = None
 _ui = None
+_auto_start_event = None
+_auto_start_handlers = []
+
+CUSTOM_EVENT_AUTO_START = 'AirGap_AutoStart'
 
 
 def run(context):
@@ -31,7 +36,7 @@ def run(context):
 
         ui_components.create_ui(_app)
 
-        _apply_auto_start_settings(_app, _ui)
+        _schedule_auto_start(_app)
 
     except Exception:
         if _ui:
@@ -39,6 +44,7 @@ def run(context):
 
 
 def stop(context):
+    global _auto_start_event
     try:
         session = ITARSessionManager.instance()
         if session.is_protected:
@@ -56,7 +62,14 @@ def stop(context):
         get_interceptor().deactivate()
 
         if _app:
+            try:
+                _app.unregisterCustomEvent(CUSTOM_EVENT_AUTO_START)
+            except Exception:
+                pass
             ui_components.destroy_ui(_app)
+
+        _auto_start_handlers.clear()
+        _auto_start_event = None
 
     except Exception:
         if _ui:
@@ -119,69 +132,156 @@ def _handle_crash_recovery(app: adsk.core.Application, ui: adsk.core.UserInterfa
         )
 
 
-def _apply_auto_start_settings(app: adsk.core.Application, ui: adsk.core.UserInterface):
+def _schedule_auto_start(app: adsk.core.Application):
+    global _auto_start_event
+
     session = ITARSessionManager.instance()
     if session.is_protected:
         return
 
-    settings = Settings.instance()
+    settings = Settings.reload()
+    if not settings.auto_offline_on_startup:
+        return
 
-    if settings.auto_offline_on_startup:
-        app.isOffLine = True
-        AuditLogger.instance().log(
-            'AUTO_OFFLINE',
-            'Offline mode enforced on startup per settings'
-        )
+    _auto_start_event = app.registerCustomEvent(CUSTOM_EVENT_AUTO_START)
+    handler = _AutoStartHandler()
+    _auto_start_event.add(handler)
+    _auto_start_handlers.append(handler)
 
-    if settings.auto_start_session and settings.auto_offline_on_startup:
-        import datetime
-        import uuid
-        from pathlib import Path
+    thread = threading.Thread(target=_fire_auto_start_after_delay, args=(app,))
+    thread.daemon = True
+    thread.start()
 
-        session_id = uuid.uuid4().hex[:12]
-        start_time = datetime.datetime.now().isoformat()
-        export_dir = settings.default_export_directory
 
-        Path(export_dir).mkdir(parents=True, exist_ok=True)
+def _fire_auto_start_after_delay(app: adsk.core.Application):
+    import time
+    import config as cfg
 
-        if not session.transition_to(SessionState.ACTIVATING):
-            return
+    deadline = time.monotonic() + cfg.AUTO_START_READY_TIMEOUT
+    ready = False
 
-        logger = AuditLogger.instance()
-        session.start_session(session_id, export_dir, start_time)
-        logger.start_session_log(session_id)
-        logger.log('SESSION_AUTO_START',
-                    f'ITAR session auto-started. Export dir: {export_dir}')
+    while time.monotonic() < deadline:
+        try:
+            if hasattr(app, 'isStartupComplete') and app.isStartupComplete:
+                ready = True
+                break
+            if app.activeViewport is not None:
+                ready = True
+                break
+        except Exception:
+            pass
+        time.sleep(cfg.AUTO_START_READY_POLL)
 
-        enforcer = get_enforcer()
-        if not enforcer.activate(app):
-            logger.log('SESSION_ABORT',
-                        'Auto-start failed: could not enable offline mode',
-                        'CRITICAL')
-            session.transition_to(SessionState.UNPROTECTED)
-            session.reset()
-            logger.end_session_log()
-            return
+    if not ready:
+        try:
+            AuditLogger.instance().log(
+                'AUTO_START_WARN',
+                f'Fusion readiness not confirmed after {cfg.AUTO_START_READY_TIMEOUT}s; proceeding anyway',
+                'WARNING'
+            )
+        except Exception:
+            pass
 
-        get_interceptor().activate(app)
+    time.sleep(cfg.AUTO_START_POST_READY_DELAY)
 
-        if not session.transition_to(SessionState.PROTECTED):
-            enforcer.deactivate()
-            get_interceptor().deactivate()
-            session.reset()
-            logger.end_session_log()
-            return
+    try:
+        app.fireCustomEvent(CUSTOM_EVENT_AUTO_START, '')
+    except Exception:
+        pass
 
-        SessionPersistence.save_state(session)
-        ui_components.update_button_visibility(SessionState.PROTECTED)
 
-        ui.messageBox(
-            'ITAR SESSION AUTO-STARTED\n\n'
-            f'Session ID: {session_id}\n'
-            f'Export Directory: {export_dir}\n\n'
-            'Fusion is offline and cloud saves are blocked.\n\n'
-            'This session was started automatically per your AirGap settings.',
-            'AirGap - Auto Session',
-            adsk.core.MessageBoxButtonTypes.OKButtonType,
-            adsk.core.MessageBoxIconTypes.InformationIconType
-        )
+class _AutoStartHandler(adsk.core.CustomEventHandler):
+    def __init__(self):
+        super().__init__()
+
+    def notify(self, args):
+        try:
+            app = adsk.core.Application.get()
+            ui = app.userInterface
+            session = ITARSessionManager.instance()
+
+            if session.is_protected:
+                return
+
+            settings = Settings.instance()
+
+            app.isOffLine = True
+            AuditLogger.instance().log(
+                'AUTO_OFFLINE',
+                'Offline mode enforced on startup per settings'
+            )
+
+            if not settings.auto_start_session:
+                return
+
+            import datetime
+            import uuid
+            from pathlib import Path
+
+            session_id = uuid.uuid4().hex[:12]
+            start_time = datetime.datetime.now().isoformat()
+            export_dir = settings.default_export_directory
+
+            Path(export_dir).mkdir(parents=True, exist_ok=True)
+
+            if not session.transition_to(SessionState.ACTIVATING):
+                ui.messageBox(
+                    'AirGap auto-start failed: invalid session state.',
+                    'AirGap - Error'
+                )
+                return
+
+            logger = AuditLogger.instance()
+            session.start_session(session_id, export_dir, start_time)
+            logger.start_session_log(session_id)
+            logger.log('SESSION_AUTO_START',
+                        f'ITAR session auto-started. Export dir: {export_dir}')
+
+            enforcer = get_enforcer()
+            if not enforcer.activate(app, retries=5):
+                logger.log('SESSION_ABORT',
+                            'Auto-start failed: could not enable offline mode',
+                            'CRITICAL')
+                session.transition_to(SessionState.UNPROTECTED)
+                session.reset()
+                logger.end_session_log()
+                ui.messageBox(
+                    'AirGap auto-start failed: could not enable offline mode.\n\n'
+                    'Please start the ITAR session manually.',
+                    'AirGap - Error',
+                    adsk.core.MessageBoxButtonTypes.OKButtonType,
+                    adsk.core.MessageBoxIconTypes.CriticalIconType
+                )
+                return
+
+            get_interceptor().activate(app)
+
+            if not session.transition_to(SessionState.PROTECTED):
+                enforcer.deactivate()
+                get_interceptor().deactivate()
+                session.reset()
+                logger.end_session_log()
+                return
+
+            SessionPersistence.save_state(session)
+            ui_components.update_button_visibility(SessionState.PROTECTED)
+
+            ui.messageBox(
+                'ITAR SESSION AUTO-STARTED\n\n'
+                f'Session ID: {session_id}\n'
+                f'Export Directory: {export_dir}\n\n'
+                'Fusion is offline and cloud saves are blocked.\n\n'
+                'This session was started automatically per your AirGap settings.',
+                'AirGap - Auto Session',
+                adsk.core.MessageBoxButtonTypes.OKButtonType,
+                adsk.core.MessageBoxIconTypes.InformationIconType
+            )
+        except Exception:
+            try:
+                app = adsk.core.Application.get()
+                app.userInterface.messageBox(
+                    f'AirGap auto-start error:\n{traceback.format_exc()}',
+                    'AirGap - Error'
+                )
+            except Exception:
+                pass

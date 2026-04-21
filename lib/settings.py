@@ -25,6 +25,11 @@ class Settings:
             cls._instance = cls()
         return cls._instance
 
+    @classmethod
+    def reload(cls) -> 'Settings':
+        cls._instance = cls()
+        return cls._instance
+
     def _load(self):
         settings_file = Path(config.SETTINGS_FILE)
         if not settings_file.exists():

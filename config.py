@@ -25,6 +25,11 @@ CUSTOM_EVENT_OFFLINE_CHECK = 'AirGap_OfflineCheck'
 # Polling interval for offline mode verification (seconds)
 OFFLINE_CHECK_INTERVAL = 5
 
+# Auto-start readiness timing
+AUTO_START_READY_TIMEOUT = 60
+AUTO_START_READY_POLL = 2
+AUTO_START_POST_READY_DELAY = 3
+
 # Allowed export formats
 ALLOWED_EXPORT_FORMATS = ['f3d', 'step', 'stl', 'iges', 'sat']
 

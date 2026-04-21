@@ -22,7 +22,10 @@ class ViewLogCommand(adsk.core.CommandCreatedEventHandler):
             cmd.execute.add(execute_handler)
             _handlers.append(execute_handler)
         except Exception:
-            pass
+            app = adsk.core.Application.get()
+            app.userInterface.messageBox(
+                f'Error opening audit log viewer:\n{traceback.format_exc()}'
+            )
 
 
 class ViewLogExecuteHandler(adsk.core.CommandEventHandler):
@@ -50,7 +53,7 @@ class ViewLogExecuteHandler(adsk.core.CommandEventHandler):
                 import os
                 os.startfile(path_str)
             else:
-                subprocess.call(['open', path_str])
+                subprocess.Popen(['open', path_str])
         except Exception:
             app = adsk.core.Application.get()
             app.userInterface.messageBox(
