@@ -13,6 +13,7 @@ CMD_START_SESSION = 'airgap_start_session'
 CMD_STOP_SESSION = 'airgap_stop_session'
 CMD_EXPORT_LOCAL = 'airgap_export_local'
 CMD_VIEW_LOG = 'airgap_view_log'
+CMD_SETTINGS = 'airgap_settings'
 
 # Toolbar IDs
 TOOLBAR_TAB_ID = 'AirGapTab'
@@ -36,6 +37,7 @@ else:
 DEFAULT_EXPORT_DIR = Path.home() / 'AirGap_Exports'
 AUDIT_LOG_DIR = _BASE_DIR / 'logs'
 SESSION_STATE_FILE = _BASE_DIR / 'session_state.json'
+SETTINGS_FILE = _BASE_DIR / 'settings.json'
 
 # Icon resource paths (relative to ADDIN_DIR)
 ICON_AIRGAP_ON = str(ADDIN_DIR / 'resources' / 'airgap_on')

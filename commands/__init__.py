@@ -12,6 +12,7 @@ def register_commands(ui: adsk.core.UserInterface):
     from commands.stop_session import StopSessionCommand
     from commands.export_local import ExportLocalCommand
     from commands.view_log import ViewLogCommand
+    from commands.settings import SettingsCommand
 
     commands = [
         (config.CMD_START_SESSION, 'Start ITAR Session',
@@ -26,6 +27,9 @@ def register_commands(ui: adsk.core.UserInterface):
         (config.CMD_VIEW_LOG, 'View Audit Log',
          'Open the ITAR compliance audit log.',
          '', ViewLogCommand),
+        (config.CMD_SETTINGS, 'AirGap Settings',
+         'Configure AirGap auto-start and default settings.',
+         '', SettingsCommand),
     ]
 
     for cmd_id, name, tooltip, icon, handler_cls in commands:

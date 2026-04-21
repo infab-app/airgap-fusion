@@ -4,12 +4,13 @@ import traceback
 
 import adsk.core
 
-from lib.session_manager import ITARSessionManager, SessionState
+from lib.session_manager import ITARSessionManager, SessionState, is_default_document
 from lib.offline_enforcer import OfflineEnforcer
 from lib.save_interceptor import SaveInterceptor
 from lib.audit_logger import AuditLogger
 from lib.persistence import SessionPersistence
 from lib.ui_components import update_button_visibility
+from lib.settings import Settings
 import config
 
 _enforcer = OfflineEnforcer()
@@ -36,7 +37,7 @@ class StartSessionCommand(adsk.core.CommandCreatedEventHandler):
 
             inputs.addStringValueInput(
                 'exportDir', 'Export Directory',
-                str(config.DEFAULT_EXPORT_DIR)
+                Settings.instance().default_export_directory
             )
 
             inputs.addBoolValueInput(
@@ -176,8 +177,10 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
             update_button_visibility(SessionState.PROTECTED)
 
             if app.activeDocument:
-                session.track_document(app.activeDocument.name)
-                logger.log('DOC_OPENED', f'Active document tracked: {app.activeDocument.name}')
+                doc_name = app.activeDocument.name
+                if not is_default_document(doc_name):
+                    session.track_document(doc_name)
+                    logger.log('DOC_OPENED', f'Active document tracked: {doc_name}')
 
             ui.messageBox(
                 'ITAR SESSION ACTIVE\n\n'

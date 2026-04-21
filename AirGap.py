@@ -13,6 +13,7 @@ if _addin_path not in sys.path:
 from lib.session_manager import ITARSessionManager, SessionState
 from lib.audit_logger import AuditLogger
 from lib.persistence import SessionPersistence
+from lib.settings import Settings
 from lib import ui_components
 from commands.start_session import get_enforcer, get_interceptor
 
@@ -29,6 +30,8 @@ def run(context):
         _handle_crash_recovery(_app, _ui)
 
         ui_components.create_ui(_app)
+
+        _apply_auto_start_settings(_app, _ui)
 
     except Exception:
         if _ui:
@@ -111,6 +114,74 @@ def _handle_crash_recovery(app: adsk.core.Application, ui: adsk.core.UserInterfa
             'You may manually go online when you are confident '
             'no ITAR data is present.',
             'AirGap',
+            adsk.core.MessageBoxButtonTypes.OKButtonType,
+            adsk.core.MessageBoxIconTypes.InformationIconType
+        )
+
+
+def _apply_auto_start_settings(app: adsk.core.Application, ui: adsk.core.UserInterface):
+    session = ITARSessionManager.instance()
+    if session.is_protected:
+        return
+
+    settings = Settings.instance()
+
+    if settings.auto_offline_on_startup:
+        app.isOffLine = True
+        AuditLogger.instance().log(
+            'AUTO_OFFLINE',
+            'Offline mode enforced on startup per settings'
+        )
+
+    if settings.auto_start_session and settings.auto_offline_on_startup:
+        import datetime
+        import uuid
+        from pathlib import Path
+
+        session_id = uuid.uuid4().hex[:12]
+        start_time = datetime.datetime.now().isoformat()
+        export_dir = settings.default_export_directory
+
+        Path(export_dir).mkdir(parents=True, exist_ok=True)
+
+        if not session.transition_to(SessionState.ACTIVATING):
+            return
+
+        logger = AuditLogger.instance()
+        session.start_session(session_id, export_dir, start_time)
+        logger.start_session_log(session_id)
+        logger.log('SESSION_AUTO_START',
+                    f'ITAR session auto-started. Export dir: {export_dir}')
+
+        enforcer = get_enforcer()
+        if not enforcer.activate(app):
+            logger.log('SESSION_ABORT',
+                        'Auto-start failed: could not enable offline mode',
+                        'CRITICAL')
+            session.transition_to(SessionState.UNPROTECTED)
+            session.reset()
+            logger.end_session_log()
+            return
+
+        get_interceptor().activate(app)
+
+        if not session.transition_to(SessionState.PROTECTED):
+            enforcer.deactivate()
+            get_interceptor().deactivate()
+            session.reset()
+            logger.end_session_log()
+            return
+
+        SessionPersistence.save_state(session)
+        ui_components.update_button_visibility(SessionState.PROTECTED)
+
+        ui.messageBox(
+            'ITAR SESSION AUTO-STARTED\n\n'
+            f'Session ID: {session_id}\n'
+            f'Export Directory: {export_dir}\n\n'
+            'Fusion is offline and cloud saves are blocked.\n\n'
+            'This session was started automatically per your AirGap settings.',
+            'AirGap - Auto Session',
             adsk.core.MessageBoxButtonTypes.OKButtonType,
             adsk.core.MessageBoxIconTypes.InformationIconType
         )
