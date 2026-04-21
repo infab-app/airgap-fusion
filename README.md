@@ -1,2 +1,119 @@
-# airgap-fusion
-Fusion 360 plugin for export controlled workflows
+# AirGap for Fusion 360
+
+A Fusion 360 add-in that enforces offline mode for ITAR-compliant design workflows. AirGap prevents export-controlled data from reaching Autodesk's cloud servers by locking Fusion into offline mode, blocking cloud saves, and providing local-only file export.
+
+> **Disclaimer:** AirGap is a best-effort compliance workflow tool, not an ITAR certification or guarantee. Autodesk Fusion 360 is not ITAR-compliant per Autodesk's own documentation. Consult your compliance officers before relying on this tool.
+
+## How It Works
+
+AirGap manages an ITAR session lifecycle with four states:
+
+```
+UNPROTECTED → ACTIVATING → PROTECTED → DEACTIVATING → UNPROTECTED
+```
+
+1. **Start ITAR Session** — Forces Fusion into offline mode, begins monitoring
+2. **Work in Protected Mode** — Cloud saves are blocked, all opened documents are tracked
+3. **Export Locally** — Save .f3d, STEP, STL, IGES files and CAM output to local or network-attached storage
+4. **End Session** — Verifies all documents were exported and closed before allowing deactivation
+
+### Key Features
+
+- **Offline Enforcement** — Programmatically sets `app.isOffLine = True` and monitors via event handlers and a polling thread. If someone toggles Fusion back online, AirGap immediately re-enforces offline mode.
+- **Cloud Save Blocking** — Intercepts all save operations via the `documentSaving` event and cancels them with a warning directing the user to export locally.
+- **Local Export** — Supports F3D (Fusion Archive), STEP, STL, IGES, SAT, CAM NC code post-processing, and setup sheet generation.
+- **Audit Logging** — Append-only JSONL logs record every session event (start, stop, exports, blocked saves, violations) for compliance auditing.
+- **Crash Recovery** — Session state is persisted to disk. If Fusion crashes during an ITAR session, AirGap forces offline mode on restart and offers to restore the session.
+- **Cross-Platform** — Single Python codebase for Windows and macOS.
+
+## Installation
+
+Copy the add-in folder to Fusion 360's add-ins directory:
+
+**Windows:**
+```
+%AppData%\Autodesk\Autodesk Fusion 360\API\AddIns\AirGap\
+```
+
+**macOS:**
+```
+~/Library/Application Support/Autodesk/Application Plugins/AirGap/
+```
+
+Then in Fusion 360:
+1. Open **Tools → Add-Ins** (or press `Shift+S`)
+2. Go to the **Add-Ins** tab
+3. Find **AirGap** in the list
+4. Check **Run on Startup** (recommended)
+5. Click **Run**
+
+## Usage
+
+Once running, AirGap adds an **AirGap** tab to the toolbar in both the Design and Manufacture workspaces.
+
+### Starting an ITAR Session
+
+1. Click **Start ITAR Session**
+2. Set the export directory (local path or NAS mount)
+3. Confirm the ITAR acknowledgment checkbox
+4. Click **OK** — Fusion goes offline and cloud saves are blocked
+
+### Exporting Files
+
+1. Click **Export Locally**
+2. Select formats: F3D, STEP, STL, IGES (and CAM options if applicable)
+3. Choose the target component
+4. Click **OK** — Files are saved to your local export directory
+
+### Ending an ITAR Session
+
+1. Export all tracked documents
+2. Close all tracked documents in Fusion
+3. Click **Stop ITAR Session**
+4. Confirm both acknowledgment checkboxes
+5. Click **OK** — Enforcement is deactivated
+
+Fusion remains in offline mode after the session ends. You must manually go online after confirming no ITAR data remains in Fusion's local cache.
+
+## File Structure
+
+```
+AirGap/
+├── AirGap.py                # Entry point
+├── AirGap.manifest          # Add-in metadata
+├── config.py                # Constants and paths
+├── lib/
+│   ├── session_manager.py   # State machine
+│   ├── offline_enforcer.py  # Offline mode control and monitoring
+│   ├── save_interceptor.py  # Cloud save blocking
+│   ├── export_manager.py    # Local file export
+│   ├── audit_logger.py      # JSONL compliance logging
+│   ├── ui_components.py     # Toolbar and button setup
+│   └── persistence.py       # Crash recovery state
+├── commands/
+│   ├── start_session.py     # Start ITAR session command
+│   ├── stop_session.py      # Stop session command
+│   ├── export_local.py      # Export dialog command
+│   └── view_log.py          # Open audit log
+├── resources/               # Toolbar icons (16x16 and 32x32 PNG)
+└── docs/
+    └── ITAR_COMPLIANCE_GUIDE.md
+```
+
+## Audit Logs
+
+Logs are stored as JSONL files at:
+- **Windows:** `%APPDATA%\.airgap\logs\`
+- **macOS:** `~/.airgap/logs/`
+
+Each line is a JSON object with timestamp, session ID, event type, detail, severity, user, and machine name. See [ITAR Compliance Guide](docs/ITAR_COMPLIANCE_GUIDE.md) for the full event type reference.
+
+## Important Limitations
+
+- **Not a complete ITAR solution.** Fusion 360's local cache may retain design data that syncs when going back online. See the [ITAR Compliance Guide](docs/ITAR_COMPLIANCE_GUIDE.md) for cache clearing procedures.
+- **14-day license window.** Fusion requires internet access for license validation every 14 days. Plan ITAR work within this window, then clear the cache before reconnecting.
+- **Session-level tracking.** All documents opened during a session are treated as ITAR-controlled. There is no per-file classification.
+
+## License
+
+MIT
