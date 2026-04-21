@@ -39,7 +39,7 @@ xcopy /E airgap-fusion "%AppData%\Autodesk\Autodesk Fusion 360\API\AddIns\AirGap
 **macOS:**
 ```
 git clone https://github.com/your-org/airgap-fusion.git
-cp -R airgap-fusion ~/Library/Application\ Support/Autodesk/Application\ Plugins/AirGap
+cp -R airgap-fusion ~/Library/Application\ Support/Autodesk/Autodesk\ Fusion\ 360/API/AddIns/AirGap
 ```
 
 The resulting directory should look like:
