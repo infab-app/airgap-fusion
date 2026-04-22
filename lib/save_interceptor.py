@@ -1,9 +1,7 @@
-import traceback
-
 import adsk.core
 
-from lib.session_manager import ITARSessionManager
 from lib.audit_logger import AuditLogger
+from lib.session_manager import ITARSessionManager
 
 
 class DocumentSavingHandler(adsk.core.DocumentEventHandler):
@@ -18,24 +16,22 @@ class DocumentSavingHandler(adsk.core.DocumentEventHandler):
                 return
 
             event_args.isSaveCanceled = True
-            doc_name = event_args.document.name if event_args.document else 'Unknown'
+            doc_name = event_args.document.name if event_args.document else "Unknown"
             AuditLogger.instance().log(
-                'SAVE_BLOCKED',
-                f'Cloud save blocked for: {doc_name}',
-                'WARNING'
+                "SAVE_BLOCKED", f"Cloud save blocked for: {doc_name}", "WARNING"
             )
 
             app = adsk.core.Application.get()
             ui = app.userInterface
             ui.messageBox(
-                f'CLOUD SAVE BLOCKED\n\n'
-                f'Document: {doc_name}\n\n'
-                f'Cloud saves are prohibited during ITAR sessions.\n'
+                f"CLOUD SAVE BLOCKED\n\n"
+                f"Document: {doc_name}\n\n"
+                f"Cloud saves are prohibited during ITAR sessions.\n"
                 f'Use the AirGap "Export Locally" button to save '
-                f'files to your local or NAS storage.',
-                'AirGap - Save Blocked',
+                f"files to your local or NAS storage.",
+                "AirGap - Save Blocked",
                 adsk.core.MessageBoxButtonTypes.OKButtonType,
-                adsk.core.MessageBoxIconTypes.CriticalIconType
+                adsk.core.MessageBoxIconTypes.CriticalIconType,
             )
         except Exception:
             pass
@@ -54,7 +50,7 @@ class DocumentOpenedHandler(adsk.core.DocumentEventHandler):
             if event_args.document:
                 doc_name = event_args.document.name
                 session.track_document(doc_name)
-                AuditLogger.instance().log('DOC_OPENED', f'Document tracked: {doc_name}')
+                AuditLogger.instance().log("DOC_OPENED", f"Document tracked: {doc_name}")
         except Exception:
             pass
 
@@ -72,7 +68,7 @@ class DocumentCreatedHandler(adsk.core.DocumentEventHandler):
             if event_args.document:
                 doc_name = event_args.document.name
                 session.track_document(doc_name)
-                AuditLogger.instance().log('DOC_CREATED', f'New document tracked: {doc_name}')
+                AuditLogger.instance().log("DOC_CREATED", f"New document tracked: {doc_name}")
         except Exception:
             pass
 
@@ -87,8 +83,8 @@ class DocumentClosedHandler(adsk.core.DocumentEventHandler):
             session = ITARSessionManager.instance()
             if not session.is_protected:
                 return
-            doc_name = event_args.document.name if event_args.document else 'Unknown'
-            AuditLogger.instance().log('DOC_CLOSED', f'Document closed: {doc_name}')
+            doc_name = event_args.document.name if event_args.document else "Unknown"
+            AuditLogger.instance().log("DOC_CLOSED", f"Document closed: {doc_name}")
         except Exception:
             pass
 
