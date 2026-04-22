@@ -43,8 +43,7 @@ class StartSessionCommand(adsk.core.CommandCreatedEventHandler):
             inputs.addTextBoxCommandInput(
                 "confirmItarText",
                 "",
-                "All documents opened during this session will be treated "
-                "as export-controlled.",
+                "All documents opened during this session will be treated as export-controlled.",
                 2,
                 True,
             )
