@@ -28,21 +28,32 @@ UNPROTECTED → ACTIVATING → PROTECTED → DEACTIVATING → UNPROTECTED
 
 ## Installation
 
-Clone or download this repository, then copy (or symlink) the entire repo into Fusion 360's add-ins directory so that `AirGap.py` and `AirGap.manifest` are inside the folder:
+This repository contains an `AirGap` folder that is the complete add-in. Copy just this folder into Fusion 360's add-ins directory.
+
+**Option 1: Download and drag-and-drop (easiest)**
+
+1. Download this repository as a ZIP and extract it
+2. Copy the `AirGap` folder into Fusion 360's add-ins directory:
+   - **Windows:** `%AppData%\Autodesk\Autodesk Fusion 360\API\AddIns\`
+   - **macOS:** `~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/AddIns/`
+
+**Option 2: Clone with git**
 
 **Windows:**
 ```
-git clone https://github.com/your-org/airgap-fusion.git
-xcopy /E airgap-fusion "%AppData%\Autodesk\Autodesk Fusion 360\API\AddIns\AirGap\"
+git clone https://github.com/infab-app/airgap-fusion.git
+xcopy /E airgap-fusion\AirGap "%AppData%\Autodesk\Autodesk Fusion 360\API\AddIns\AirGap\"
 ```
 
 **macOS:**
 ```
-git clone https://github.com/your-org/airgap-fusion.git
-cp -R airgap-fusion ~/Library/Application\ Support/Autodesk/Autodesk\ Fusion\ 360/API/AddIns/AirGap
+git clone https://github.com/infab-app/airgap-fusion.git
+cp -R airgap-fusion/AirGap ~/Library/Application\ Support/Autodesk/Autodesk\ Fusion\ 360/API/AddIns/AirGap
 ```
 
-The resulting directory should look like:
+> **Important:** Copy only the `AirGap` folder, not the entire repository. The other files (docs, CI config, linter config) are for development and are not needed by the add-in.
+
+The resulting directory in your Add-Ins folder should look like:
 ```
 AirGap/
 ├── AirGap.py
@@ -89,29 +100,35 @@ Once running, AirGap adds an **AirGap** tab to the toolbar in both the Design an
 
 Fusion remains in offline mode after the session ends. You must manually go online after confirming no ITAR data remains in Fusion's local cache.
 
-## File Structure
+## Repository Structure
 
 ```
-AirGap/
-├── AirGap.py                # Entry point
-├── AirGap.manifest          # Add-in metadata
-├── config.py                # Constants and paths
-├── lib/
-│   ├── session_manager.py   # State machine
-│   ├── offline_enforcer.py  # Offline mode control and monitoring
-│   ├── save_interceptor.py  # Cloud save blocking
-│   ├── export_manager.py    # Local file export
-│   ├── audit_logger.py      # JSONL compliance logging
-│   ├── ui_components.py     # Toolbar and button setup
-│   └── persistence.py       # Crash recovery state
-├── commands/
-│   ├── start_session.py     # Start ITAR session command
-│   ├── stop_session.py      # Stop session command
-│   ├── export_local.py      # Export dialog command
-│   └── view_log.py          # Open audit log
-├── resources/               # Toolbar icons (16x16 and 32x32 PNG)
-└── docs/
-    └── ITAR_COMPLIANCE_GUIDE.md
+airgap-fusion/
+├── AirGap/                    # Add-in folder (copy this into Fusion 360)
+│   ├── AirGap.py              # Entry point
+│   ├── AirGap.manifest        # Add-in metadata
+│   ├── config.py              # Constants and paths
+│   ├── lib/
+│   │   ├── session_manager.py # State machine
+│   │   ├── offline_enforcer.py# Offline mode control and monitoring
+│   │   ├── save_interceptor.py# Cloud save blocking
+│   │   ├── export_manager.py  # Local file export
+│   │   ├── audit_logger.py    # JSONL compliance logging
+│   │   ├── ui_components.py   # Toolbar and button setup
+│   │   ├── persistence.py     # Crash recovery state
+│   │   └── settings.py        # User settings management
+│   ├── commands/
+│   │   ├── start_session.py   # Start ITAR session command
+│   │   ├── stop_session.py    # Stop session command
+│   │   ├── export_local.py    # Export dialog command
+│   │   ├── view_log.py        # Open audit log
+│   │   └── settings.py        # Settings dialog command
+│   └── resources/             # Toolbar icons (16x16 and 32x32 PNG)
+├── docs/                      # Documentation
+│   ├── ITAR_COMPLIANCE_GUIDE.md
+│   └── CONTRIBUTING.md
+├── .github/workflows/         # CI workflows
+└── ruff.toml                  # Linter configuration
 ```
 
 ## Audit Logs
