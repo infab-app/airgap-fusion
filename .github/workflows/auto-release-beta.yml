@@ -1,0 +1,118 @@
+name: Auto Release Beta
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  beta-release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Lint
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: check
+
+      - name: Format check
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: format --check
+
+      - name: Syntax check
+        run: python -m compileall -q .
+
+      - name: Compute next beta version
+        id: version
+        run: |
+          python3 << 'SCRIPT'
+          import os, re
+
+          with open("AirGap/config.py") as f:
+              match = re.search(r"VERSION\s*=\s*['\"]([^'\"]+)['\"]", f.read())
+          current = match.group(1)
+
+          beta_match = re.match(r"^(\d+\.\d+\.\d+)-beta\.(\d+)$", current)
+          if beta_match:
+              base = beta_match.group(1)
+              beta_num = int(beta_match.group(2)) + 1
+              new_version = f"{base}-beta.{beta_num}"
+          else:
+              parts = current.split(".")
+              parts[2] = str(int(parts[2]) + 1)
+              new_version = ".".join(parts) + "-beta.1"
+
+          print(f"Current: {current} -> Next: {new_version}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"version={new_version}\n")
+              f.write(f"old_version={current}\n")
+          SCRIPT
+
+      - name: Update version files
+        run: |
+          python3 << 'SCRIPT'
+          import json, re
+
+          version = "${{ steps.version.outputs.version }}"
+
+          config_path = "AirGap/config.py"
+          with open(config_path) as f:
+              text = f.read()
+          text = re.sub(
+              r"(VERSION\s*=\s*['\"])[^'\"]+(['\"])",
+              rf"\g<1>{version}\g<2>",
+              text,
+          )
+          with open(config_path, "w") as f:
+              f.write(text)
+
+          manifest_path = "AirGap/AirGap.manifest"
+          with open(manifest_path) as f:
+              manifest = json.load(f)
+          manifest["version"] = version
+          with open(manifest_path, "w") as f:
+              json.dump(manifest, f, indent=4)
+              f.write("\n")
+          SCRIPT
+
+      - name: Commit, tag, and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add AirGap/config.py AirGap/AirGap.manifest
+          git commit -m "Bump version to ${{ steps.version.outputs.version }}"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin develop --tags
+
+      - name: Package release
+        run: |
+          zip -r "AirGap-v${{ steps.version.outputs.version }}.zip" AirGap/ \
+            -x "AirGap/__pycache__/*" "AirGap/**/__pycache__/*" "AirGap/**/*.pyc"
+
+      - name: Generate checksum
+        run: shasum -a 256 "AirGap-v${{ steps.version.outputs.version }}.zip" > SHA256SUMS
+
+      - name: Create GitHub Pre-Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" \
+            "AirGap-v${{ steps.version.outputs.version }}.zip" \
+            SHA256SUMS \
+            --title "AirGap v${{ steps.version.outputs.version }}" \
+            --generate-notes \
+            --prerelease
