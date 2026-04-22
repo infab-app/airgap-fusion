@@ -22,8 +22,11 @@ _app = None
 _ui = None
 _auto_start_event = None
 _auto_start_handlers = []
+_crash_recovery_event = None
+_crash_recovery_handlers = []
 
 CUSTOM_EVENT_AUTO_START = "AirGap_AutoStart"
+CUSTOM_EVENT_CRASH_RECOVERY = "AirGap_CrashRecoveryComplete"
 
 
 def run(context):
@@ -32,11 +35,15 @@ def run(context):
         _app = adsk.core.Application.get()
         _ui = _app.userInterface
 
-        _handle_crash_recovery(_app, _ui)
+        restored = _handle_crash_recovery(_app, _ui)
 
         ui_components.create_ui(_app)
 
-        _schedule_auto_start(_app)
+        if restored:
+            ui_components.update_button_visibility(SessionState.PROTECTED)
+            _schedule_crash_recovery_completion(_app)
+        else:
+            _schedule_auto_start(_app)
 
     except Exception:
         if _ui:
@@ -44,7 +51,7 @@ def run(context):
 
 
 def stop(context):
-    global _auto_start_event
+    global _auto_start_event, _crash_recovery_event
     try:
         session = SessionManager.instance()
         if session.is_protected:
@@ -66,23 +73,29 @@ def stop(context):
                 _app.unregisterCustomEvent(CUSTOM_EVENT_AUTO_START)
             except Exception:
                 pass
+            try:
+                _app.unregisterCustomEvent(CUSTOM_EVENT_CRASH_RECOVERY)
+            except Exception:
+                pass
             ui_components.destroy_ui(_app)
 
         _auto_start_handlers.clear()
         _auto_start_event = None
+        _crash_recovery_handlers.clear()
+        _crash_recovery_event = None
 
     except Exception:
         if _ui:
             _ui.messageBox(f"AirGap error during shutdown:\n{traceback.format_exc()}")
 
 
-def _handle_crash_recovery(app: adsk.core.Application, ui: adsk.core.UserInterface):
+def _handle_crash_recovery(app: adsk.core.Application, ui: adsk.core.UserInterface) -> bool:
     saved_state = SessionPersistence.load_state()
     if not saved_state:
-        return
+        return False
     if saved_state.get("state") not in ("PROTECTED", "ACTIVATING"):
         SessionPersistence.clear_state()
-        return
+        return False
 
     logger = AuditLogger.instance()
     logger.log(
@@ -112,24 +125,28 @@ def _handle_crash_recovery(app: adsk.core.Application, ui: adsk.core.UserInterfa
         session = SessionManager.instance()
         SessionPersistence.restore_session(session, saved_state)
 
-        enforcer = get_enforcer()
-        enforcer.activate(app)
-        get_interceptor().activate(app)
-
         session_id = saved_state.get("session_id", "recovered")
         logger.start_session_log(f"{session_id}_recovered")
-        logger.log("CRASH_RECOVERY", "Session restored by user")
+        logger.log(
+            "CRASH_RECOVERY",
+            "Session restored by user; offline enforcement deferred until Fusion is ready",
+        )
+        return True
 
     else:
         SessionPersistence.clear_state()
+        logger.log("CRASH_RECOVERY", "User declined session restore")
         ui.messageBox(
-            "Session not restored. Fusion remains offline.\n\n"
-            "You may manually go online when you are confident "
+            "Session not restored. AirGap will try to enable offline mode "
+            "as a precaution, but this is not enforced; Fusion may enter "
+            "prevent offline mode from being enabled.\n\n"
+            "If offline, you may go online when you are confident "
             "no export-controlled data is present.",
             "AirGap",
             adsk.core.MessageBoxButtonTypes.OKButtonType,
             adsk.core.MessageBoxIconTypes.InformationIconType,
         )
+        return False
 
 
 def _schedule_auto_start(app: adsk.core.Application):
@@ -148,12 +165,12 @@ def _schedule_auto_start(app: adsk.core.Application):
     _auto_start_event.add(handler)
     _auto_start_handlers.append(handler)
 
-    thread = threading.Thread(target=_fire_auto_start_after_delay, args=(app,))
+    thread = threading.Thread(target=_fire_event_after_ready, args=(app, CUSTOM_EVENT_AUTO_START))
     thread.daemon = True
     thread.start()
 
 
-def _fire_auto_start_after_delay(app: adsk.core.Application):
+def _fire_event_after_ready(app: adsk.core.Application, event_id: str):
     import time
 
     import config as cfg
@@ -176,7 +193,7 @@ def _fire_auto_start_after_delay(app: adsk.core.Application):
     if not ready:
         try:
             AuditLogger.instance().log(
-                "AUTO_START_WARN",
+                "STARTUP_WARN",
                 f"Fusion readiness not confirmed after {cfg.AUTO_START_READY_TIMEOUT}s; proceeding anyway",
                 "WARNING",
             )
@@ -186,9 +203,77 @@ def _fire_auto_start_after_delay(app: adsk.core.Application):
     time.sleep(cfg.AUTO_START_POST_READY_DELAY)
 
     try:
-        app.fireCustomEvent(CUSTOM_EVENT_AUTO_START, "")
+        app.fireCustomEvent(event_id, "")
     except Exception:
         pass
+
+
+def _schedule_crash_recovery_completion(app: adsk.core.Application):
+    global _crash_recovery_event
+
+    _crash_recovery_event = app.registerCustomEvent(CUSTOM_EVENT_CRASH_RECOVERY)
+    handler = _CrashRecoveryCompleteHandler()
+    _crash_recovery_event.add(handler)
+    _crash_recovery_handlers.append(handler)
+
+    thread = threading.Thread(
+        target=_fire_event_after_ready, args=(app, CUSTOM_EVENT_CRASH_RECOVERY)
+    )
+    thread.daemon = True
+    thread.start()
+
+
+class _CrashRecoveryCompleteHandler(adsk.core.CustomEventHandler):
+    def __init__(self):
+        super().__init__()
+
+    def notify(self, args):
+        try:
+            app = adsk.core.Application.get()
+            ui = app.userInterface
+            session = SessionManager.instance()
+            logger = AuditLogger.instance()
+
+            if not session.is_protected:
+                return
+
+            enforcer = get_enforcer()
+            if enforcer.is_active:
+                return
+
+            if not enforcer.activate(app, retries=5):
+                logger.log(
+                    "SESSION_ABORT",
+                    "Crash recovery failed: could not enable offline mode",
+                    "CRITICAL",
+                )
+                session.reset()
+                SessionPersistence.clear_state()
+                logger.end_session_log()
+                ui_components.update_button_visibility(SessionState.UNPROTECTED)
+                ui.messageBox(
+                    "AIRGAP CRASH RECOVERY FAILED\n\n"
+                    "Could not enable offline mode. The previous session "
+                    "has NOT been restored.\n\n"
+                    "Please start a new AirGap session manually.",
+                    "AirGap - Error",
+                    adsk.core.MessageBoxButtonTypes.OKButtonType,
+                    adsk.core.MessageBoxIconTypes.CriticalIconType,
+                )
+                return
+
+            get_interceptor().activate(app)
+            SessionPersistence.save_state(session)
+            logger.log("CRASH_RECOVERY", "Offline enforcement activated after Fusion startup")
+        except Exception:
+            try:
+                app = adsk.core.Application.get()
+                app.userInterface.messageBox(
+                    f"AirGap crash recovery error:\n{traceback.format_exc()}",
+                    "AirGap - Error",
+                )
+            except Exception:
+                pass
 
 
 class _AutoStartHandler(adsk.core.CustomEventHandler):
