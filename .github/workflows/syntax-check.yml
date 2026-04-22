@@ -2,7 +2,7 @@ name: Syntax Check
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
 jobs:
   compile-check:

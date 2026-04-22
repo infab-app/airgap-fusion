@@ -2,7 +2,7 @@ name: Auto Release Beta
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [main]
     types: [closed]
 
 permissions:
@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: main
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
@@ -70,7 +70,7 @@ jobs:
                   beta_num = max(nums) + 1
 
           new_version = f"{major}.{minor}.{next_patch}-beta.{beta_num}"
-          print(f"Current: {current} -> Beta: {new_version}")
+          print(f"Current stable: {current} -> Beta: {new_version}")
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"version={new_version}\n")
@@ -111,7 +111,7 @@ jobs:
       - name: Generate checksum
         run: shasum -a 256 "AirGap-v${{ steps.version.outputs.version }}.zip" > SHA256SUMS
 
-      - name: Create tag and release
+      - name: Create tag and pre-release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
