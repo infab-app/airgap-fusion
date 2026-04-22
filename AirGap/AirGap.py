@@ -11,12 +11,12 @@ _addin_path = os.path.dirname(os.path.abspath(__file__))
 if _addin_path not in sys.path:
     sys.path.insert(0, _addin_path)
 
-from commands.start_session import get_enforcer, get_interceptor
-from lib import ui_components
-from lib.audit_logger import AuditLogger
-from lib.persistence import SessionPersistence
-from lib.session_manager import ITARSessionManager, SessionState
-from lib.settings import Settings
+from AirGap.commands.start_session import get_enforcer, get_interceptor
+from AirGap.lib import ui_components
+from AirGap.lib.audit_logger import AuditLogger
+from AirGap.lib.persistence import SessionPersistence
+from AirGap.lib.session_manager import ITARSessionManager, SessionState
+from AirGap.lib.settings import Settings
 
 _app = None
 _ui = None
@@ -156,7 +156,7 @@ def _schedule_auto_start(app: adsk.core.Application):
 def _fire_auto_start_after_delay(app: adsk.core.Application):
     import time
 
-    import config as cfg
+    import AirGap.config as cfg
 
     deadline = time.monotonic() + cfg.AUTO_START_READY_TIMEOUT
     ready = False

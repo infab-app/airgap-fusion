@@ -2,9 +2,9 @@ import traceback
 
 import adsk.core
 
-import config
-from lib.audit_logger import AuditLogger
-from lib.settings import Settings
+import AirGap.config as config
+from AirGap.lib.audit_logger import AuditLogger
+from AirGap.lib.settings import Settings
 
 _handlers = []
 

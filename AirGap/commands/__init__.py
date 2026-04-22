@@ -1,17 +1,17 @@
 import adsk.core
 
-import config
+import AirGap.config as config
 
 _command_definitions = []
 _handlers = []
 
 
 def register_commands(ui: adsk.core.UserInterface):
-    from commands.export_local import ExportLocalCommand
-    from commands.settings import SettingsCommand
-    from commands.start_session import StartSessionCommand
-    from commands.stop_session import StopSessionCommand
-    from commands.view_log import ViewLogCommand
+    from AirGap.commands.export_local import ExportLocalCommand
+    from AirGap.commands.settings import SettingsCommand
+    from AirGap.commands.start_session import StartSessionCommand
+    from AirGap.commands.stop_session import StopSessionCommand
+    from AirGap.commands.view_log import ViewLogCommand
 
     commands = [
         (

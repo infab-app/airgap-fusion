@@ -3,8 +3,8 @@ import json
 import os
 from pathlib import Path
 
-import config
-from lib.session_manager import ITARSessionManager, SessionState
+import AirGap.config as config
+from AirGap.lib.session_manager import ITARSessionManager, SessionState
 
 
 class SessionPersistence:
