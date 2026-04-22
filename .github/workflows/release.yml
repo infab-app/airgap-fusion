@@ -17,6 +17,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+          token: ${{ secrets.RELEASE_TOKEN }}
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
@@ -101,7 +102,7 @@ jobs:
 
       - name: Create GitHub Release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           gh release create "v${{ inputs.version }}" \
             "AirGap-v${{ inputs.version }}.zip" \
