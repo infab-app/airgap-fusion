@@ -4,13 +4,13 @@ import uuid
 
 import adsk.core
 
-from AirGap.lib.audit_logger import AuditLogger
-from AirGap.lib.offline_enforcer import OfflineEnforcer
-from AirGap.lib.persistence import SessionPersistence
-from AirGap.lib.save_interceptor import SaveInterceptor
-from AirGap.lib.session_manager import SessionManager, SessionState, is_default_document
-from AirGap.lib.settings import Settings
-from AirGap.lib.ui_components import update_button_visibility
+from lib.audit_logger import AuditLogger
+from lib.offline_enforcer import OfflineEnforcer
+from lib.persistence import SessionPersistence
+from lib.save_interceptor import SaveInterceptor
+from lib.session_manager import SessionManager, SessionState, is_default_document
+from lib.settings import Settings
+from lib.ui_components import update_button_visibility
 
 _enforcer = OfflineEnforcer()
 _interceptor = SaveInterceptor()

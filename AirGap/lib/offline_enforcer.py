@@ -3,9 +3,9 @@ import threading
 
 import adsk.core
 
-import AirGap.config as config
-from AirGap.lib.audit_logger import AuditLogger
-from AirGap.lib.session_manager import SessionManager
+import config
+from lib.audit_logger import AuditLogger
+from lib.session_manager import SessionManager
 
 
 class OnlineStatusChangedHandler(adsk.core.ApplicationEventHandler):

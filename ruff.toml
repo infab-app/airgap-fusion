@@ -25,3 +25,4 @@ ignore = [
 
 [lint.isort]
 known-third-party = ["adsk"]
+known-first-party = ["commands", "lib", "config"]

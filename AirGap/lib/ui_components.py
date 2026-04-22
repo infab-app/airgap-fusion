@@ -3,8 +3,8 @@ import traceback
 import adsk.core
 import adsk.fusion
 
-import AirGap.config as config
-from AirGap.lib.session_manager import SessionManager, SessionState
+import config
+from lib.session_manager import SessionManager, SessionState
 
 _panels_created = []
 _tabs_created = []
@@ -13,7 +13,7 @@ _tabs_created = []
 def create_ui(app: adsk.core.Application):
     ui = app.userInterface
 
-    from AirGap.commands import register_commands
+    from commands import register_commands
 
     register_commands(ui)
 
@@ -67,7 +67,7 @@ def destroy_ui(app: adsk.core.Application):
             pass
     _tabs_created.clear()
 
-    from AirGap.commands import unregister_commands
+    from commands import unregister_commands
 
     unregister_commands(ui)
 

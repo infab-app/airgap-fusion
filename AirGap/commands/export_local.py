@@ -5,9 +5,9 @@ import adsk.cam
 import adsk.core
 import adsk.fusion
 
-from AirGap.lib.audit_logger import AuditLogger
-from AirGap.lib.export_manager import LocalExportManager
-from AirGap.lib.session_manager import SessionManager
+from lib.audit_logger import AuditLogger
+from lib.export_manager import LocalExportManager
+from lib.session_manager import SessionManager
 
 _handlers = []
 
