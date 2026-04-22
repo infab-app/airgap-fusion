@@ -14,6 +14,7 @@ CMD_STOP_SESSION = "airgap_stop_session"
 CMD_EXPORT_LOCAL = "airgap_export_local"
 CMD_VIEW_LOG = "airgap_view_log"
 CMD_SETTINGS = "airgap_settings"
+CMD_CHECK_UPDATE = "airgap_check_update"
 
 # Toolbar IDs
 TOOLBAR_TAB_ID = "AirGapTab"
@@ -43,6 +44,16 @@ DEFAULT_EXPORT_DIR = Path.home() / "AirGap_Exports"
 AUDIT_LOG_DIR = _BASE_DIR / "logs"
 SESSION_STATE_FILE = _BASE_DIR / "session_state.json"
 SETTINGS_FILE = _BASE_DIR / "settings.json"
+
+# Update system
+CUSTOM_EVENT_UPDATE_CHECK = "AirGap_UpdateCheck"
+GITHUB_OWNER = "infab-app"
+GITHUB_REPO = "airgap-fusion"
+GITHUB_API_BASE = "https://api.github.com"
+UPDATE_CHECK_TIMEOUT = 15
+UPDATE_STAGING_DIR = _BASE_DIR / "update_staging"
+UPDATE_PENDING_FILE = _BASE_DIR / "update_pending.json"
+UPDATE_BACKUP_DIR = _BASE_DIR / "update_backup"
 
 # Icon resource paths (relative to ADDIN_DIR)
 ICON_AIRGAP_ON = str(ADDIN_DIR / "resources" / "airgap_on")
