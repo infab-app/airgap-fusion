@@ -4,7 +4,7 @@ import traceback
 
 import adsk.core
 
-from lib.audit_logger import AuditLogger
+from AirGap.lib.audit_logger import AuditLogger
 
 _handlers = []
 

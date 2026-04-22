@@ -27,7 +27,7 @@ jobs:
                   json.loads(f.read_text())
               except json.JSONDecodeError as e:
                   errors.append(f'{f}: {e}')
-          for f in [pathlib.Path('AirGap.manifest')]:
+          for f in [pathlib.Path('AirGap/AirGap.manifest')]:
               if f.exists():
                   try:
                       json.loads(f.read_text())
@@ -44,13 +44,13 @@ jobs:
         run: |
           python3 -c "
           import json, sys, re
-          manifest = json.loads(open('AirGap.manifest').read())
+          manifest = json.loads(open('AirGap/AirGap.manifest').read())
           manifest_ver = manifest.get('version', '')
-          config_text = open('config.py').read()
+          config_text = open('AirGap/config.py').read()
           match = re.search(r\"VERSION\s*=\s*['\\\"]([^'\\\"]+)['\\\"]\", config_text)
           config_ver = match.group(1) if match else ''
           if manifest_ver != config_ver:
-              print(f'::error::Version mismatch: AirGap.manifest={manifest_ver}, config.py={config_ver}')
+              print(f'::error::Version mismatch: AirGap.manifest={manifest_ver}, AirGap/config.py={config_ver}')
               sys.exit(1)
           print(f'Version consistent: {config_ver}')
           "

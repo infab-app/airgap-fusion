@@ -19,9 +19,9 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
-"AirGap.py" = ["F401", "E402"]  # E402: sys.path must be set before local imports
-"commands/export_local.py" = ["F401"]
-"lib/ui_components.py" = ["F401"]
+"AirGap/AirGap.py" = ["F401", "E402"]  # E402: sys.path must be set before local imports
+"AirGap/commands/export_local.py" = ["F401"]
+"AirGap/lib/ui_components.py" = ["F401"]
 
 [lint.isort]
 known-third-party = ["adsk"]

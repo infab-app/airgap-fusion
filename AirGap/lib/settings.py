@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-import config
+import AirGap.config as config
 
 _DEFAULTS = {
     "auto_offline_on_startup": False,

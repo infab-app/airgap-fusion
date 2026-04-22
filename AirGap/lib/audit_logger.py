@@ -5,7 +5,7 @@ from pathlib import Path
 
 import adsk.core
 
-import config
+import AirGap.config as config
 
 
 class AuditLogger:
