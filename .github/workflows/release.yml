@@ -1,21 +1,39 @@
 name: Release
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g., 1.1.0, 2.0.0)"
+        required: true
 
 permissions:
   contents: write
 
 jobs:
-  ci:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Validate version
+        run: |
+          python3 << 'SCRIPT'
+          import re, sys
+
+          version = "${{ inputs.version }}"
+          if not re.match(r"^\d+\.\d+\.\d+$", version):
+              print(f"::error::Stable releases must be plain semver (e.g., 1.1.0), got: {version}")
+              sys.exit(1)
+          print(f"Version valid: {version}")
+          SCRIPT
 
       - name: Lint
         uses: astral-sh/ruff-action@v3
@@ -30,66 +48,63 @@ jobs:
       - name: Syntax check
         run: python -m compileall -q .
 
-      - name: Verify tag matches version files
+      - name: Update version files
         run: |
           python3 << 'SCRIPT'
-          import json, os, re, sys
+          import json, re
 
-          tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          version = "${{ inputs.version }}"
 
-          with open("AirGap/AirGap.manifest") as f:
-              manifest_ver = json.load(f).get("version", "")
+          config_path = "AirGap/config.py"
+          with open(config_path) as f:
+              text = f.read()
+          old_match = re.search(r"VERSION\s*=\s*['\"]([^'\"]+)['\"]", text)
+          old_version = old_match.group(1) if old_match else "unknown"
+          text = re.sub(
+              r"(VERSION\s*=\s*['\"])[^'\"]+(['\"])",
+              rf"\g<1>{version}\g<2>",
+              text,
+          )
+          with open(config_path, "w") as f:
+              f.write(text)
 
-          with open("AirGap/config.py") as f:
-              match = re.search(r"VERSION\s*=\s*['\"]([^'\"]+)['\"]", f.read())
-          config_ver = match.group(1) if match else ""
+          manifest_path = "AirGap/AirGap.manifest"
+          with open(manifest_path) as f:
+              manifest = json.load(f)
+          manifest["version"] = version
+          with open(manifest_path, "w") as f:
+              json.dump(manifest, f, indent=4)
+              f.write("\n")
 
-          if tag != config_ver or tag != manifest_ver:
-              print(f"::error::Version mismatch: tag={tag}, config.py={config_ver}, manifest={manifest_ver}")
-              sys.exit(1)
-
-          print(f"Version verified: {tag}")
+          print(f"Version bumped: {old_version} -> {version}")
           SCRIPT
 
-  release:
-    needs: ci
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Extract version info
-        id: version
+      - name: Commit, tag, and push
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          if [[ "$VERSION" == *"-beta"* ]] || [[ "$VERSION" == *"-rc"* ]]; then
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add AirGap/config.py AirGap/AirGap.manifest
+          git diff --cached --quiet && echo "No version change needed" || {
+            git commit -m "Release version ${{ inputs.version }}"
+            git push origin main
+          }
+          git tag "v${{ inputs.version }}"
+          git push origin "v${{ inputs.version }}"
 
       - name: Package release
         run: |
-          zip -r "AirGap-v${{ steps.version.outputs.version }}.zip" AirGap/ \
+          zip -r "AirGap-v${{ inputs.version }}.zip" AirGap/ \
             -x "AirGap/__pycache__/*" "AirGap/**/__pycache__/*" "AirGap/**/*.pyc"
 
       - name: Generate checksum
-        run: shasum -a 256 "AirGap-v${{ steps.version.outputs.version }}.zip" > SHA256SUMS
+        run: shasum -a 256 "AirGap-v${{ inputs.version }}.zip" > SHA256SUMS
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PRERELEASE_FLAG=""
-          if [ "${{ steps.version.outputs.prerelease }}" = "true" ]; then
-            PRERELEASE_FLAG="--prerelease"
-          fi
-
-          gh release create "${{ github.ref_name }}" \
-            "AirGap-v${{ steps.version.outputs.version }}.zip" \
+          gh release create "v${{ inputs.version }}" \
+            "AirGap-v${{ inputs.version }}.zip" \
             SHA256SUMS \
-            --title "AirGap v${{ steps.version.outputs.version }}" \
-            --generate-notes \
-            $PRERELEASE_FLAG
+            --title "AirGap v${{ inputs.version }}" \
+            --generate-notes
