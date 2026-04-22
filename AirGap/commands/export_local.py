@@ -38,7 +38,11 @@ class ExportLocalCommand(adsk.core.CommandCreatedEventHandler):
             for name, _ in components:
                 comp_dropdown.listItems.add(name, name == "Root Component")
 
-            inputs.addBoolValueInput("exportF3D", "Fusion Archive (.f3d)", True, "", True)
+            has_xrefs = LocalExportManager.has_external_references()
+            archive_ext = "f3z" if has_xrefs else "f3d"
+            inputs.addBoolValueInput(
+                "exportF3D", f"Fusion Archive (.{archive_ext})", True, "", True
+            )
             inputs.addBoolValueInput("exportSTEP", "STEP (.step)", True, "", False)
             inputs.addBoolValueInput("exportSTL", "STL (.stl)", True, "", False)
             inputs.addBoolValueInput("exportIGES", "IGES (.iges)", True, "", False)
@@ -145,9 +149,12 @@ class ExportExecuteHandler(adsk.core.CommandEventHandler):
             results = []
 
             if inputs.itemById("exportF3D").value:
-                filepath = str(export_dir / f"{safe_name}.f3d")
+                has_xrefs = LocalExportManager.has_external_references()
+                archive_ext = "f3z" if has_xrefs else "f3d"
+                filepath = str(export_dir / f"{safe_name}.{archive_ext}")
                 ok = LocalExportManager.export_fusion_archive(filepath, target_component)
-                results.append(("F3D", filepath, ok))
+                fmt_label = "F3Z" if has_xrefs else "F3D"
+                results.append((fmt_label, filepath, ok))
 
             if inputs.itemById("exportSTEP").value:
                 filepath = str(export_dir / f"{safe_name}.step")
