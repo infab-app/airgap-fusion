@@ -4,7 +4,7 @@ import adsk.core
 import adsk.fusion
 
 import AirGap.config as config
-from AirGap.lib.session_manager import ITARSessionManager, SessionState
+from AirGap.lib.session_manager import SessionManager, SessionState
 
 _panels_created = []
 _tabs_created = []
@@ -29,7 +29,7 @@ def create_ui(app: adsk.core.Application):
 
         panel = tab.toolbarPanels.itemById(config.TOOLBAR_PANEL_ID)
         if panel is None:
-            panel = tab.toolbarPanels.add(config.TOOLBAR_PANEL_ID, "ITAR Compliance")
+            panel = tab.toolbarPanels.add(config.TOOLBAR_PANEL_ID, "Export Control")
             _panels_created.append(panel)
 
         cmd_ids = [
@@ -47,7 +47,7 @@ def create_ui(app: adsk.core.Application):
                 ctrl = panel.controls.addCommand(cmd_def)
                 ctrl.isVisible = True
 
-    update_button_visibility(ITARSessionManager.instance().state)
+    update_button_visibility(SessionManager.instance().state)
 
 
 def destroy_ui(app: adsk.core.Application):

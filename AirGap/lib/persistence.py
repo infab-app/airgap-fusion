@@ -4,12 +4,12 @@ import os
 from pathlib import Path
 
 import AirGap.config as config
-from AirGap.lib.session_manager import ITARSessionManager, SessionState
+from AirGap.lib.session_manager import SessionManager, SessionState
 
 
 class SessionPersistence:
     @staticmethod
-    def save_state(session: ITARSessionManager):
+    def save_state(session: SessionManager):
         state_data = {
             "state": session.state.value,
             "session_id": session.session_id,
@@ -47,7 +47,7 @@ class SessionPersistence:
                 pass
 
     @staticmethod
-    def restore_session(session: ITARSessionManager, state_data: dict):
+    def restore_session(session: SessionManager, state_data: dict):
         session._state = SessionState.PROTECTED
         session._session_id = state_data.get("session_id", "")
         session._tracked_documents = set(state_data.get("tracked_documents", []))
