@@ -1,5 +1,5 @@
-import sys
 import subprocess
+import sys
 import traceback
 
 import adsk.core
@@ -24,7 +24,7 @@ class ViewLogCommand(adsk.core.CommandCreatedEventHandler):
         except Exception:
             app = adsk.core.Application.get()
             app.userInterface.messageBox(
-                f'Error opening audit log viewer:\n{traceback.format_exc()}'
+                f"Error opening audit log viewer:\n{traceback.format_exc()}"
             )
 
 
@@ -42,20 +42,18 @@ class ViewLogExecuteHandler(adsk.core.CommandEventHandler):
                 if not log_path.exists():
                     app = adsk.core.Application.get()
                     app.userInterface.messageBox(
-                        'No audit logs found.\n\n'
-                        'Start an ITAR session to begin logging.',
-                        'AirGap - Audit Log'
+                        "No audit logs found.\n\nStart an ITAR session to begin logging.",
+                        "AirGap - Audit Log",
                     )
                     return
 
             path_str = str(log_path)
-            if sys.platform == 'win32':
+            if sys.platform == "win32":
                 import os
+
                 os.startfile(path_str)
             else:
-                subprocess.Popen(['open', path_str])
+                subprocess.Popen(["open", path_str])
         except Exception:
             app = adsk.core.Application.get()
-            app.userInterface.messageBox(
-                f'Error opening log:\n{traceback.format_exc()}'
-            )
+            app.userInterface.messageBox(f"Error opening log:\n{traceback.format_exc()}")

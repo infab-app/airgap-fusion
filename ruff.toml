@@ -1,0 +1,27 @@
+target-version = "py310"
+line-length = 100
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long
+    "UP035",  # deprecated typing imports
+    "SIM105", # contextlib.suppress — try/except/pass is idiomatic in Fusion cleanup code
+]
+
+[lint.per-file-ignores]
+"AirGap.py" = ["F401", "E402"]  # E402: sys.path must be set before local imports
+"commands/export_local.py" = ["F401"]
+"lib/ui_components.py" = ["F401"]
+
+[lint.isort]
+known-third-party = ["adsk"]

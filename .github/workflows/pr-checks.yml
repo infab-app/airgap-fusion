@@ -1,0 +1,56 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for committed .pyc files
+        run: |
+          if find . -name '*.pyc' -o -name '__pycache__' | grep -q .; then
+            echo "::error::Compiled Python files found in repo"
+            exit 1
+          fi
+
+      - name: Validate JSON files
+        run: |
+          python3 -c "
+          import json, sys, pathlib
+          errors = []
+          for f in pathlib.Path('.').rglob('*.json'):
+              try:
+                  json.loads(f.read_text())
+              except json.JSONDecodeError as e:
+                  errors.append(f'{f}: {e}')
+          for f in [pathlib.Path('AirGap.manifest')]:
+              if f.exists():
+                  try:
+                      json.loads(f.read_text())
+                  except json.JSONDecodeError as e:
+                      errors.append(f'{f}: {e}')
+          if errors:
+              for e in errors:
+                  print(f'::error::{e}', file=sys.stderr)
+              sys.exit(1)
+          print('All JSON files valid')
+          "
+
+      - name: Verify version consistency
+        run: |
+          python3 -c "
+          import json, sys, re
+          manifest = json.loads(open('AirGap.manifest').read())
+          manifest_ver = manifest.get('version', '')
+          config_text = open('config.py').read()
+          match = re.search(r\"VERSION\s*=\s*['\\\"]([^'\\\"]+)['\\\"]\", config_text)
+          config_ver = match.group(1) if match else ''
+          if manifest_ver != config_ver:
+              print(f'::error::Version mismatch: AirGap.manifest={manifest_ver}, config.py={config_ver}')
+              sys.exit(1)
+          print(f'Version consistent: {config_ver}')
+          "

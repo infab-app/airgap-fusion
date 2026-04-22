@@ -1,17 +1,17 @@
 import enum
 import re
-from typing import Optional, Set
+from typing import Optional
 
 
 def is_default_document(doc_name: str) -> bool:
-    return bool(re.match(r'^Untitled\d*$', doc_name, re.IGNORECASE))
+    return bool(re.match(r"^Untitled\d*$", doc_name, re.IGNORECASE))
 
 
 class SessionState(enum.Enum):
-    UNPROTECTED = 'UNPROTECTED'
-    ACTIVATING = 'ACTIVATING'
-    PROTECTED = 'PROTECTED'
-    DEACTIVATING = 'DEACTIVATING'
+    UNPROTECTED = "UNPROTECTED"
+    ACTIVATING = "ACTIVATING"
+    PROTECTED = "PROTECTED"
+    DEACTIVATING = "DEACTIVATING"
 
 
 _VALID_TRANSITIONS = {
@@ -23,18 +23,18 @@ _VALID_TRANSITIONS = {
 
 
 class ITARSessionManager:
-    _instance: Optional['ITARSessionManager'] = None
+    _instance: Optional["ITARSessionManager"] = None
 
     def __init__(self):
         self._state: SessionState = SessionState.UNPROTECTED
-        self._tracked_documents: Set[str] = set()
-        self._exported_documents: Set[str] = set()
-        self._session_start_time: Optional[str] = None
-        self._export_directory: str = ''
-        self._session_id: str = ''
+        self._tracked_documents: set[str] = set()
+        self._exported_documents: set[str] = set()
+        self._session_start_time: str | None = None
+        self._export_directory: str = ""
+        self._session_id: str = ""
 
     @classmethod
-    def instance(cls) -> 'ITARSessionManager':
+    def instance(cls) -> "ITARSessionManager":
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
@@ -60,11 +60,11 @@ class ITARSessionManager:
         return self._session_id
 
     @property
-    def tracked_documents(self) -> Set[str]:
+    def tracked_documents(self) -> set[str]:
         return self._tracked_documents.copy()
 
     @property
-    def exported_documents(self) -> Set[str]:
+    def exported_documents(self) -> set[str]:
         return self._exported_documents.copy()
 
     def transition_to(self, new_state: SessionState) -> bool:
@@ -80,13 +80,13 @@ class ITARSessionManager:
     def mark_exported(self, doc_name: str):
         self._exported_documents.add(doc_name)
 
-    def unexported_documents(self) -> Set[str]:
+    def unexported_documents(self) -> set[str]:
         return self._tracked_documents - self._exported_documents
 
-    def substantive_unexported_documents(self) -> Set[str]:
+    def substantive_unexported_documents(self) -> set[str]:
         return {d for d in self.unexported_documents() if not is_default_document(d)}
 
-    def substantive_tracked_documents(self) -> Set[str]:
+    def substantive_tracked_documents(self) -> set[str]:
         return {d for d in self._tracked_documents if not is_default_document(d)}
 
     def start_session(self, session_id: str, export_dir: str, start_time: str):
@@ -98,6 +98,6 @@ class ITARSessionManager:
         self._tracked_documents.clear()
         self._exported_documents.clear()
         self._session_start_time = None
-        self._export_directory = ''
-        self._session_id = ''
+        self._export_directory = ""
+        self._session_id = ""
         self._state = SessionState.UNPROTECTED

@@ -2,11 +2,11 @@ import traceback
 
 import adsk.core
 
-from lib.session_manager import ITARSessionManager, SessionState, is_default_document
+from commands.start_session import get_enforcer, get_interceptor
 from lib.audit_logger import AuditLogger
 from lib.persistence import SessionPersistence
+from lib.session_manager import ITARSessionManager, SessionState
 from lib.ui_components import update_button_visibility
-from commands.start_session import get_enforcer, get_interceptor
 
 _handlers = []
 
@@ -27,40 +27,43 @@ class StopSessionCommand(adsk.core.CommandCreatedEventHandler):
 
             status_lines = []
             for doc_name in sorted(tracked):
-                mark = '[EXPORTED]' if doc_name in exported else '[NOT EXPORTED]'
-                status_lines.append(f'  {mark} {doc_name}')
+                mark = "[EXPORTED]" if doc_name in exported else "[NOT EXPORTED]"
+                status_lines.append(f"  {mark} {doc_name}")
 
             if not status_lines:
-                status_text = '  (No documents were tracked during this session)'
+                status_text = "  (No documents were tracked during this session)"
             else:
-                status_text = '\n'.join(status_lines)
+                status_text = "\n".join(status_lines)
 
             inputs.addTextBoxCommandInput(
-                'docStatus', 'Tracked Documents',
-                status_text, len(status_lines) + 2, True
+                "docStatus", "Tracked Documents", status_text, len(status_lines) + 2, True
             )
 
             if unexported:
                 inputs.addTextBoxCommandInput(
-                    'warning', 'WARNING',
+                    "warning",
+                    "WARNING",
                     f'<b style="color:red">{len(unexported)} document(s) have NOT been '
-                    f'exported locally. You must export all documents before ending '
-                    f'the ITAR session.</b>',
-                    3, True
+                    f"exported locally. You must export all documents before ending "
+                    f"the ITAR session.</b>",
+                    3,
+                    True,
                 )
 
             inputs.addBoolValueInput(
-                'confirmExport',
-                'I confirm all ITAR data has been exported and '
-                'no ITAR documents remain open',
-                True, '', False
+                "confirmExport",
+                "I confirm all ITAR data has been exported and no ITAR documents remain open",
+                True,
+                "",
+                False,
             )
 
             inputs.addBoolValueInput(
-                'confirmCache',
-                'I understand I should clear Fusion\'s local cache '
-                'per organizational policy',
-                True, '', False
+                "confirmCache",
+                "I understand I should clear Fusion's local cache per organizational policy",
+                True,
+                "",
+                False,
             )
 
             execute_handler = StopSessionExecuteHandler()
@@ -74,7 +77,7 @@ class StopSessionCommand(adsk.core.CommandCreatedEventHandler):
         except Exception:
             app = adsk.core.Application.get()
             app.userInterface.messageBox(
-                f'Error creating stop session dialog:\n{traceback.format_exc()}'
+                f"Error creating stop session dialog:\n{traceback.format_exc()}"
             )
 
 
@@ -87,8 +90,8 @@ class StopSessionValidateHandler(adsk.core.ValidateInputsEventHandler):
             inputs = args.inputs
             session = ITARSessionManager.instance()
 
-            confirm_export = inputs.itemById('confirmExport')
-            confirm_cache = inputs.itemById('confirmCache')
+            confirm_export = inputs.itemById("confirmExport")
+            confirm_cache = inputs.itemById("confirmCache")
 
             is_valid = True
 
@@ -125,31 +128,27 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
             logger = AuditLogger.instance()
 
             if not session.transition_to(SessionState.DEACTIVATING):
-                ui.messageBox(
-                    'Cannot stop session: invalid state transition.',
-                    'AirGap - Error'
-                )
+                ui.messageBox("Cannot stop session: invalid state transition.", "AirGap - Error")
                 return
 
             substantive_unexported = session.substantive_unexported_documents()
             if substantive_unexported:
                 logger.log(
-                    'DEACTIVATION_BLOCKED',
-                    f'Attempted deactivation with unexported docs: '
-                    f'{substantive_unexported}',
-                    'WARNING'
+                    "DEACTIVATION_BLOCKED",
+                    f"Attempted deactivation with unexported docs: {substantive_unexported}",
+                    "WARNING",
                 )
                 session.transition_to(SessionState.PROTECTED)
                 ui.messageBox(
-                    'Cannot end session: unexported documents remain.\n\n'
-                    'Please export all tracked documents first.',
-                    'AirGap - Session Active',
+                    "Cannot end session: unexported documents remain.\n\n"
+                    "Please export all tracked documents first.",
+                    "AirGap - Session Active",
                     adsk.core.MessageBoxButtonTypes.OKButtonType,
-                    adsk.core.MessageBoxIconTypes.WarningIconType
+                    adsk.core.MessageBoxIconTypes.WarningIconType,
                 )
                 return
 
-            logger.log('SESSION_END', 'ITAR session ended cleanly')
+            logger.log("SESSION_END", "ITAR session ended cleanly")
 
             get_enforcer().deactivate()
             get_interceptor().deactivate()
@@ -162,19 +161,17 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
             update_button_visibility(SessionState.UNPROTECTED)
 
             ui.messageBox(
-                'ITAR SESSION ENDED\n\n'
-                'Offline enforcement and save blocking have been deactivated.\n\n'
-                'IMPORTANT: Fusion is still in offline mode. You must '
-                'manually go online when you are confident no ITAR data '
-                'remains in Fusion\'s local cache.\n\n'
-                'Refer to the ITAR Compliance Guide for cache clearing '
-                'procedures.',
-                'AirGap - Session Ended',
+                "ITAR SESSION ENDED\n\n"
+                "Offline enforcement and save blocking have been deactivated.\n\n"
+                "IMPORTANT: Fusion is still in offline mode. You must "
+                "manually go online when you are confident no ITAR data "
+                "remains in Fusion's local cache.\n\n"
+                "Refer to the ITAR Compliance Guide for cache clearing "
+                "procedures.",
+                "AirGap - Session Ended",
                 adsk.core.MessageBoxButtonTypes.OKButtonType,
-                adsk.core.MessageBoxIconTypes.InformationIconType
+                adsk.core.MessageBoxIconTypes.InformationIconType,
             )
         except Exception:
             app = adsk.core.Application.get()
-            app.userInterface.messageBox(
-                f'Error stopping session:\n{traceback.format_exc()}'
-            )
+            app.userInterface.messageBox(f"Error stopping session:\n{traceback.format_exc()}")

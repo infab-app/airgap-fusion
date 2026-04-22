@@ -1,17 +1,16 @@
 import datetime
-import uuid
 import traceback
+import uuid
 
 import adsk.core
 
-from lib.session_manager import ITARSessionManager, SessionState, is_default_document
-from lib.offline_enforcer import OfflineEnforcer
-from lib.save_interceptor import SaveInterceptor
 from lib.audit_logger import AuditLogger
+from lib.offline_enforcer import OfflineEnforcer
 from lib.persistence import SessionPersistence
-from lib.ui_components import update_button_visibility
+from lib.save_interceptor import SaveInterceptor
+from lib.session_manager import ITARSessionManager, SessionState, is_default_document
 from lib.settings import Settings
-import config
+from lib.ui_components import update_button_visibility
 
 _enforcer = OfflineEnforcer()
 _interceptor = SaveInterceptor()
@@ -36,18 +35,18 @@ class StartSessionCommand(adsk.core.CommandCreatedEventHandler):
             inputs = cmd.commandInputs
 
             inputs.addStringValueInput(
-                'exportDir', 'Export Directory',
-                Settings.instance().default_export_directory
+                "exportDir", "Export Directory", Settings.instance().default_export_directory
             )
 
-            inputs.addBoolValueInput(
-                'browseDir', 'Browse...', False, '', False
-            )
+            inputs.addBoolValueInput("browseDir", "Browse...", False, "", False)
 
             inputs.addBoolValueInput(
-                'confirmItar', 'I understand all documents opened during '
-                'this session will be treated as ITAR-controlled',
-                True, '', False
+                "confirmItar",
+                "I understand all documents opened during "
+                "this session will be treated as ITAR-controlled",
+                True,
+                "",
+                False,
             )
 
             execute_handler = StartSessionExecuteHandler()
@@ -65,7 +64,7 @@ class StartSessionCommand(adsk.core.CommandCreatedEventHandler):
         except Exception:
             app = adsk.core.Application.get()
             app.userInterface.messageBox(
-                f'Error creating start session dialog:\n{traceback.format_exc()}'
+                f"Error creating start session dialog:\n{traceback.format_exc()}"
             )
 
 
@@ -76,17 +75,17 @@ class StartSessionInputChangedHandler(adsk.core.InputChangedEventHandler):
     def notify(self, args):
         try:
             changed_input = args.input
-            if changed_input.id != 'browseDir':
+            if changed_input.id != "browseDir":
                 return
 
             app = adsk.core.Application.get()
             ui = app.userInterface
             folder_dlg = ui.createFolderDialog()
-            folder_dlg.title = 'Select Export Directory'
+            folder_dlg.title = "Select Export Directory"
             result = folder_dlg.showDialog()
             if result == adsk.core.DialogResults.DialogOK:
                 inputs = args.inputs
-                dir_input = inputs.itemById('exportDir')
+                dir_input = inputs.itemById("exportDir")
                 dir_input.value = folder_dlg.folder
         except Exception:
             pass
@@ -99,8 +98,8 @@ class StartSessionValidateHandler(adsk.core.ValidateInputsEventHandler):
     def notify(self, args):
         try:
             inputs = args.inputs
-            confirm_input = inputs.itemById('confirmItar')
-            dir_input = inputs.itemById('exportDir')
+            confirm_input = inputs.itemById("confirmItar")
+            dir_input = inputs.itemById("exportDir")
 
             is_valid = True
             if not confirm_input.value:
@@ -122,9 +121,10 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
             app = adsk.core.Application.get()
             ui = app.userInterface
             inputs = args.command.commandInputs
-            export_dir = inputs.itemById('exportDir').value.strip()
+            export_dir = inputs.itemById("exportDir").value.strip()
 
             from pathlib import Path
+
             export_path = Path(export_dir)
             export_path.mkdir(parents=True, exist_ok=True)
 
@@ -133,8 +133,7 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
 
             if not session.transition_to(SessionState.ACTIVATING):
                 ui.messageBox(
-                    'Cannot start ITAR session: invalid state transition.',
-                    'AirGap - Error'
+                    "Cannot start ITAR session: invalid state transition.", "AirGap - Error"
                 )
                 return
 
@@ -142,21 +141,21 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
             start_time = datetime.datetime.now().isoformat()
             session.start_session(session_id, export_dir, start_time)
             logger.start_session_log(session_id)
-            logger.log('SESSION_START', f'ITAR session initiated. Export dir: {export_dir}')
+            logger.log("SESSION_START", f"ITAR session initiated. Export dir: {export_dir}")
 
             if not _enforcer.activate(app):
-                logger.log('SESSION_ABORT', 'Could not enable offline mode', 'CRITICAL')
+                logger.log("SESSION_ABORT", "Could not enable offline mode", "CRITICAL")
                 session.transition_to(SessionState.UNPROTECTED)
                 session.reset()
                 logger.end_session_log()
                 ui.messageBox(
-                    'FAILED TO START ITAR SESSION\n\n'
-                    'Could not enable offline mode. Fusion may not support '
-                    'programmatic offline control in this version.\n\n'
-                    'Please manually enable offline mode and try again.',
-                    'AirGap - Error',
+                    "FAILED TO START ITAR SESSION\n\n"
+                    "Could not enable offline mode. Fusion may not support "
+                    "programmatic offline control in this version.\n\n"
+                    "Please manually enable offline mode and try again.",
+                    "AirGap - Error",
                     adsk.core.MessageBoxButtonTypes.OKButtonType,
-                    adsk.core.MessageBoxIconTypes.CriticalIconType
+                    adsk.core.MessageBoxIconTypes.CriticalIconType,
                 )
                 return
 
@@ -167,10 +166,7 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
                 _interceptor.deactivate()
                 session.reset()
                 logger.end_session_log()
-                ui.messageBox(
-                    'Failed to transition to PROTECTED state.',
-                    'AirGap - Error'
-                )
+                ui.messageBox("Failed to transition to PROTECTED state.", "AirGap - Error")
                 return
 
             SessionPersistence.save_state(session)
@@ -180,22 +176,20 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
                 doc_name = app.activeDocument.name
                 if not is_default_document(doc_name):
                     session.track_document(doc_name)
-                    logger.log('DOC_OPENED', f'Active document tracked: {doc_name}')
+                    logger.log("DOC_OPENED", f"Active document tracked: {doc_name}")
 
             ui.messageBox(
-                'ITAR SESSION ACTIVE\n\n'
-                f'Session ID: {session_id}\n'
-                f'Export Directory: {export_dir}\n\n'
-                '- Fusion is now OFFLINE\n'
-                '- Cloud saves are BLOCKED\n'
+                "ITAR SESSION ACTIVE\n\n"
+                f"Session ID: {session_id}\n"
+                f"Export Directory: {export_dir}\n\n"
+                "- Fusion is now OFFLINE\n"
+                "- Cloud saves are BLOCKED\n"
                 '- Use "Export Locally" to save files\n\n'
-                'All documents opened during this session will be tracked.',
-                'AirGap - Session Started',
+                "All documents opened during this session will be tracked.",
+                "AirGap - Session Started",
                 adsk.core.MessageBoxButtonTypes.OKButtonType,
-                adsk.core.MessageBoxIconTypes.InformationIconType
+                adsk.core.MessageBoxIconTypes.InformationIconType,
             )
         except Exception:
             app = adsk.core.Application.get()
-            app.userInterface.messageBox(
-                f'Error starting session:\n{traceback.format_exc()}'
-            )
+            app.userInterface.messageBox(f"Error starting session:\n{traceback.format_exc()}")

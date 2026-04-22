@@ -6,7 +6,6 @@ import adsk.fusion
 import config
 from lib.session_manager import ITARSessionManager, SessionState
 
-
 _panels_created = []
 _tabs_created = []
 
@@ -15,6 +14,7 @@ def create_ui(app: adsk.core.Application):
     ui = app.userInterface
 
     from commands import register_commands
+
     register_commands(ui)
 
     for ws_id in config.TARGET_WORKSPACES:
@@ -24,12 +24,12 @@ def create_ui(app: adsk.core.Application):
 
         tab = ws.toolbarTabs.itemById(config.TOOLBAR_TAB_ID)
         if tab is None:
-            tab = ws.toolbarTabs.add(config.TOOLBAR_TAB_ID, 'AirGap')
+            tab = ws.toolbarTabs.add(config.TOOLBAR_TAB_ID, "AirGap")
             _tabs_created.append(tab)
 
         panel = tab.toolbarPanels.itemById(config.TOOLBAR_PANEL_ID)
         if panel is None:
-            panel = tab.toolbarPanels.add(config.TOOLBAR_PANEL_ID, 'ITAR Compliance')
+            panel = tab.toolbarPanels.add(config.TOOLBAR_PANEL_ID, "ITAR Compliance")
             _panels_created.append(panel)
 
         cmd_ids = [
@@ -68,6 +68,7 @@ def destroy_ui(app: adsk.core.Application):
     _tabs_created.clear()
 
     from commands import unregister_commands
+
     unregister_commands(ui)
 
 

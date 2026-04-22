@@ -2,41 +2,60 @@ import adsk.core
 
 import config
 
-
 _command_definitions = []
 _handlers = []
 
 
 def register_commands(ui: adsk.core.UserInterface):
+    from commands.export_local import ExportLocalCommand
+    from commands.settings import SettingsCommand
     from commands.start_session import StartSessionCommand
     from commands.stop_session import StopSessionCommand
-    from commands.export_local import ExportLocalCommand
     from commands.view_log import ViewLogCommand
-    from commands.settings import SettingsCommand
 
     commands = [
-        (config.CMD_START_SESSION, 'Start ITAR Session',
-         'Activate ITAR compliance mode. Forces offline, blocks cloud saves.',
-         config.ICON_AIRGAP_OFF, StartSessionCommand),
-        (config.CMD_STOP_SESSION, 'Stop ITAR Session',
-         'Deactivate ITAR session. Requires all docs exported and closed.',
-         config.ICON_AIRGAP_ON, StopSessionCommand),
-        (config.CMD_EXPORT_LOCAL, 'Export Locally',
-         'Export active design to local or NAS storage.',
-         config.ICON_EXPORT, ExportLocalCommand),
-        (config.CMD_VIEW_LOG, 'View Audit Log',
-         'Open the ITAR compliance audit log.',
-         '', ViewLogCommand),
-        (config.CMD_SETTINGS, 'AirGap Settings',
-         'Configure AirGap auto-start and default settings.',
-         '', SettingsCommand),
+        (
+            config.CMD_START_SESSION,
+            "Start ITAR Session",
+            "Activate ITAR compliance mode. Forces offline, blocks cloud saves.",
+            config.ICON_AIRGAP_OFF,
+            StartSessionCommand,
+        ),
+        (
+            config.CMD_STOP_SESSION,
+            "Stop ITAR Session",
+            "Deactivate ITAR session. Requires all docs exported and closed.",
+            config.ICON_AIRGAP_ON,
+            StopSessionCommand,
+        ),
+        (
+            config.CMD_EXPORT_LOCAL,
+            "Export Locally",
+            "Export active design to local or NAS storage.",
+            config.ICON_EXPORT,
+            ExportLocalCommand,
+        ),
+        (
+            config.CMD_VIEW_LOG,
+            "View Audit Log",
+            "Open the ITAR compliance audit log.",
+            "",
+            ViewLogCommand,
+        ),
+        (
+            config.CMD_SETTINGS,
+            "AirGap Settings",
+            "Configure AirGap auto-start and default settings.",
+            "",
+            SettingsCommand,
+        ),
     ]
 
     for cmd_id, name, tooltip, icon, handler_cls in commands:
         cmd_def = ui.commandDefinitions.itemById(cmd_id)
         if not cmd_def:
             cmd_def = ui.commandDefinitions.addButtonDefinition(
-                cmd_id, name, tooltip, icon if icon else ''
+                cmd_id, name, tooltip, icon if icon else ""
             )
         handler = handler_cls()
         cmd_def.commandCreated.add(handler)

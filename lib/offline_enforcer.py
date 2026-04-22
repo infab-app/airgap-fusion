@@ -1,12 +1,11 @@
 import json
 import threading
-import traceback
 
 import adsk.core
 
 import config
-from lib.session_manager import ITARSessionManager
 from lib.audit_logger import AuditLogger
+from lib.session_manager import ITARSessionManager
 
 
 class OnlineStatusChangedHandler(adsk.core.ApplicationEventHandler):
@@ -22,19 +21,19 @@ class OnlineStatusChangedHandler(adsk.core.ApplicationEventHandler):
             if not app.isOffLine:
                 app.isOffLine = True
                 AuditLogger.instance().log(
-                    'OFFLINE_VIOLATION',
-                    'Online transition detected and blocked via onlineStatusChanged',
-                    'CRITICAL'
+                    "OFFLINE_VIOLATION",
+                    "Online transition detected and blocked via onlineStatusChanged",
+                    "CRITICAL",
                 )
                 ui = app.userInterface
                 ui.messageBox(
-                    'ITAR SESSION ACTIVE\n\n'
-                    'Online mode was blocked. Fusion must remain offline '
-                    'during ITAR-protected sessions.\n\n'
+                    "ITAR SESSION ACTIVE\n\n"
+                    "Online mode was blocked. Fusion must remain offline "
+                    "during ITAR-protected sessions.\n\n"
                     'Use "Export Locally" to save your work.',
-                    'AirGap - Warning',
+                    "AirGap - Warning",
                     adsk.core.MessageBoxButtonTypes.OKButtonType,
-                    adsk.core.MessageBoxIconTypes.WarningIconType
+                    adsk.core.MessageBoxIconTypes.WarningIconType,
                 )
         except Exception:
             pass
@@ -48,7 +47,7 @@ class OfflineViolationCustomHandler(adsk.core.CustomEventHandler):
         try:
             event_args = adsk.core.CustomEventArgs.cast(args)
             data = json.loads(event_args.additionalInfo)
-            if not data.get('violation'):
+            if not data.get("violation"):
                 return
             session = ITARSessionManager.instance()
             if not session.is_protected:
@@ -57,18 +56,18 @@ class OfflineViolationCustomHandler(adsk.core.CustomEventHandler):
             if not app.isOffLine:
                 app.isOffLine = True
                 AuditLogger.instance().log(
-                    'OFFLINE_VIOLATION',
-                    'Online transition detected and blocked via polling',
-                    'CRITICAL'
+                    "OFFLINE_VIOLATION",
+                    "Online transition detected and blocked via polling",
+                    "CRITICAL",
                 )
                 ui = app.userInterface
                 ui.messageBox(
-                    'ITAR SESSION ACTIVE\n\n'
-                    'Online mode was blocked. Fusion must remain offline '
-                    'during ITAR-protected sessions.',
-                    'AirGap - Warning',
+                    "ITAR SESSION ACTIVE\n\n"
+                    "Online mode was blocked. Fusion must remain offline "
+                    "during ITAR-protected sessions.",
+                    "AirGap - Warning",
                     adsk.core.MessageBoxButtonTypes.OKButtonType,
-                    adsk.core.MessageBoxIconTypes.WarningIconType
+                    adsk.core.MessageBoxIconTypes.WarningIconType,
                 )
         except Exception:
             pass
@@ -89,8 +88,7 @@ class OfflineMonitorThread(threading.Thread):
             try:
                 if not self._app.isOffLine:
                     self._app.fireCustomEvent(
-                        config.CUSTOM_EVENT_OFFLINE_CHECK,
-                        json.dumps({'violation': True})
+                        config.CUSTOM_EVENT_OFFLINE_CHECK, json.dumps({"violation": True})
                     )
             except Exception:
                 pass
@@ -114,24 +112,20 @@ class OfflineEnforcer:
             if app.isOffLine:
                 break
             try:
-                app.executeTextCommand('Commands.Start WorkOfflineCommand')
+                app.executeTextCommand("Commands.Start WorkOfflineCommand")
                 time.sleep(0.5)
             except Exception:
                 pass
             if app.isOffLine:
                 break
             if attempt < retries:
-                time.sleep(min(1 * (2 ** attempt), 8))
+                time.sleep(min(1 * (2**attempt), 8))
 
         if not app.isOffLine:
-            logger.log(
-                'OFFLINE_FAILED',
-                'Could not enable offline mode via any method',
-                'CRITICAL'
-            )
+            logger.log("OFFLINE_FAILED", "Could not enable offline mode via any method", "CRITICAL")
             return False
 
-        logger.log('OFFLINE_SET', 'Fusion offline mode activated')
+        logger.log("OFFLINE_SET", "Fusion offline mode activated")
 
         online_handler = OnlineStatusChangedHandler()
         app.onlineStatusChanged.add(online_handler)
