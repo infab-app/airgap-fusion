@@ -44,8 +44,28 @@ class StopSessionCommand(adsk.core.CommandCreatedEventHandler):
                     "warning",
                     "WARNING",
                     f'<b style="color:red">{len(unexported)} document(s) have NOT been '
-                    f"exported locally. You must export all documents before ending "
-                    f"the AirGap session.</b>",
+                    f"exported locally. Ending the session without exporting may "
+                    f"result in data loss.</b>",
+                    3,
+                    True,
+                )
+
+            app = adsk.core.Application.get()
+            open_doc_names = []
+            for doc_name in session.substantive_tracked_documents():
+                for i in range(app.documents.count):
+                    doc = app.documents.item(i)
+                    if doc.name == doc_name:
+                        open_doc_names.append(doc_name)
+                        break
+
+            if open_doc_names:
+                inputs.addTextBoxCommandInput(
+                    "openDocsWarning",
+                    "WARNING",
+                    f'<b style="color:red">{len(open_doc_names)} tracked document(s) '
+                    f"are still open. This is expected in the Manufacture workspace. "
+                    f"Ensure all work has been exported before proceeding.</b>",
                     3,
                     True,
                 )
@@ -88,30 +108,9 @@ class StopSessionValidateHandler(adsk.core.ValidateInputsEventHandler):
     def notify(self, args):
         try:
             inputs = args.inputs
-            session = SessionManager.instance()
-
             confirm_export = inputs.itemById("confirmExport")
             confirm_cache = inputs.itemById("confirmCache")
-
-            is_valid = True
-
-            if not confirm_export.value:
-                is_valid = False
-            if not confirm_cache.value:
-                is_valid = False
-
-            if session.substantive_unexported_documents():
-                is_valid = False
-
-            app = adsk.core.Application.get()
-            for doc_name in session.substantive_tracked_documents():
-                for i in range(app.documents.count):
-                    doc = app.documents.item(i)
-                    if doc.name == doc_name:
-                        is_valid = False
-                        break
-
-            args.areInputsValid = is_valid
+            args.areInputsValid = confirm_export.value and confirm_cache.value
         except Exception:
             args.areInputsValid = False
 
@@ -134,21 +133,29 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
             substantive_unexported = session.substantive_unexported_documents()
             if substantive_unexported:
                 logger.log(
-                    "DEACTIVATION_BLOCKED",
-                    f"Attempted deactivation with unexported docs: {substantive_unexported}",
+                    "SESSION_END_WITH_UNEXPORTED",
+                    f"Session ended with unexported docs: {sorted(substantive_unexported)}",
                     "WARNING",
                 )
-                session.transition_to(SessionState.PROTECTED)
-                ui.messageBox(
-                    "Cannot end session: unexported documents remain.\n\n"
-                    "Please export all tracked documents first.",
-                    "AirGap - Session Active",
-                    adsk.core.MessageBoxButtonTypes.OKButtonType,
-                    adsk.core.MessageBoxIconTypes.WarningIconType,
-                )
-                return
 
-            logger.log("SESSION_END", "AirGap session ended cleanly")
+            open_doc_names = []
+            for doc_name in session.substantive_tracked_documents():
+                for i in range(app.documents.count):
+                    doc = app.documents.item(i)
+                    if doc.name == doc_name:
+                        open_doc_names.append(doc_name)
+                        break
+            if open_doc_names:
+                logger.log(
+                    "SESSION_END_WITH_OPEN_DOCS",
+                    f"Session ended with open docs: {sorted(open_doc_names)}",
+                    "WARNING",
+                )
+
+            if substantive_unexported or open_doc_names:
+                logger.log("SESSION_END", "AirGap session ended with warnings (user acknowledged)")
+            else:
+                logger.log("SESSION_END", "AirGap session ended cleanly")
 
             get_enforcer().deactivate()
             get_interceptor().deactivate()
