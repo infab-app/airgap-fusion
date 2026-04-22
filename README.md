@@ -25,19 +25,27 @@ UNPROTECTED → ACTIVATING → PROTECTED → DEACTIVATING → UNPROTECTED
 - **Audit Logging** — Append-only JSONL logs record every session event (start, stop, exports, blocked saves, violations) for compliance auditing.
 - **Crash Recovery** — Session state is persisted to disk. If Fusion crashes during a session, AirGap forces offline mode on restart and offers to restore the session.
 - **Cross-Platform** — Single Python codebase for Windows and macOS.
+- **Auto-Update** - Optionally check for updates automatically on Fusion startup, notifying you of any new updates and can update itself after user confirmation
 
 ## Installation
 
-This repository contains an `AirGap` folder that is the complete add-in. Copy just this folder into Fusion 360's add-ins directory.
+The `AirGap` folder in this repository is the complete add-in. Copy just this folder into Fusion 360's add-ins directory.
 
-**Option 1: Download and drag-and-drop (easiest)**
+**Option 1: Download from GitHub Releases (recommended)**
 
-1. Download this repository as a ZIP and extract it
-2. Copy the `AirGap` folder into Fusion 360's add-ins directory:
+1. Go to the [latest release](https://github.com/infab-app/airgap-fusion/releases/latest)
+2. Download `AirGap-v{version}.zip`
+3. Extract the zip — you'll get an `AirGap/` folder
+4. Drag-and-drop or copy the `AirGap` folder into Fusion 360's add-ins directory:
    - **Windows:** `%AppData%\Autodesk\Autodesk Fusion 360\API\AddIns\`
    - **macOS:** `~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/AddIns/`
 
-**Option 2: Clone with git**
+**Option 2: Download the repository as a ZIP**
+
+1. Click **Code → Download ZIP** on the repository page
+2. Extract the zip and copy only the `AirGap` folder into the add-ins directory above
+
+**Option 3: Clone with git**
 
 **Windows:**
 ```
@@ -51,7 +59,13 @@ git clone https://github.com/infab-app/airgap-fusion.git
 cp -R airgap-fusion/AirGap ~/Library/Application\ Support/Autodesk/Autodesk\ Fusion\ 360/API/AddIns/AirGap
 ```
 
-> **Important:** Copy only the `AirGap` folder, not the entire repository. The other files (docs, CI config, linter config) are for development and are not needed by the add-in.
+> **Important:** For options 2 and 3, copy only the `AirGap` folder, not the entire repository. The other files (docs, CI config, linter config) are for development and are not needed by the add-in.
+
+### Updating
+
+AirGap can check for updates from within Fusion 360. Click **Check for Updates** in the AirGap toolbar tab to see if a newer version is available. You can also enable automatic update checks on startup in AirGap Settings.
+
+To update manually, delete the existing `AirGap` folder from your Fusion 360 add-ins directory and replace it with the `AirGap` folder from the [latest release](https://github.com/infab-app/airgap-fusion/releases/latest). Your settings and audit logs are stored separately (`~/.airgap/`) and will not be affected.
 
 The resulting directory in your Add-Ins folder should look like:
 ```
@@ -98,6 +112,13 @@ Once running, AirGap adds an **AirGap** tab to the toolbar in both the Design an
 4. Confirm both acknowledgment checkboxes
 5. Click **OK** — Enforcement is deactivated
 
+### Enabling Auto-updates
+
+1. Click **AirGap Settings**
+2. Enable the **Check for updates when Fusion starts** toggle
+3. Click **OK**
+4. Settings should now be saved and AirGap will check for updates every time Fusion starts
+
 Fusion remains in offline mode after the session ends. You must manually go online after confirming no ITAR data remains in Fusion's local cache.
 
 ## Repository Structure
@@ -116,17 +137,21 @@ airgap-fusion/
 │   │   ├── audit_logger.py    # JSONL compliance logging
 │   │   ├── ui_components.py   # Toolbar and button setup
 │   │   ├── persistence.py     # Crash recovery state
-│   │   └── settings.py        # User settings management
+│   │   ├── settings.py        # User settings management
+│   │   ├── github_client.py   # GitHub Releases API client
+│   │   └── updater.py         # Self-update orchestration
 │   ├── commands/
 │   │   ├── start_session.py   # Start AirGap session command
 │   │   ├── stop_session.py    # Stop session command
 │   │   ├── export_local.py    # Export dialog command
+│   │   ├── check_update.py    # Check for updates command
 │   │   ├── view_log.py        # Open audit log
 │   │   └── settings.py        # Settings dialog command
 │   └── resources/             # Toolbar icons (16x16 and 32x32 PNG)
 ├── docs/                      # Documentation
 │   ├── ITAR_COMPLIANCE_GUIDE.md
-│   └── CONTRIBUTING.md
+│   ├── CONTRIBUTING.md
+│   └── RELEASE_STRATEGY.md
 ├── .github/workflows/         # CI workflows
 └── ruff.toml                  # Linter configuration
 ```
