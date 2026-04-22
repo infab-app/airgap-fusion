@@ -50,32 +50,17 @@ class StopSessionCommand(adsk.core.CommandCreatedEventHandler):
                     True,
                 )
 
-            inputs.addTextBoxCommandInput(
-                "confirmExportText",
-                "",
-                "All export-controlled data has been exported and no "
-                "protected documents remain open.",
-                2,
-                True,
-            )
             inputs.addBoolValueInput(
                 "confirmExport",
-                "I confirm",
+                "I confirm all export-controlled data has been exported and no protected documents remain open",
                 True,
                 "",
                 False,
             )
 
-            inputs.addTextBoxCommandInput(
-                "confirmCacheText",
-                "",
-                "I should clear Fusion\u2019s local cache per organizational policy.",
-                2,
-                True,
-            )
             inputs.addBoolValueInput(
                 "confirmCache",
-                "I acknowledge",
+                "I understand I should clear Fusion's local cache per organizational policy",
                 True,
                 "",
                 False,
