@@ -44,6 +44,7 @@ def create_ui(app: adsk.core.Application):
             config.CMD_EXPORT_LOCAL,
             config.CMD_VIEW_LOG,
             config.CMD_SETTINGS,
+            config.CMD_CHECK_UPDATE,
         ]
         for cmd_id in cmd_ids:
             ctrl = panel.controls.itemById(cmd_id)
