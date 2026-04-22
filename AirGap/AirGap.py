@@ -231,7 +231,9 @@ class _AutoStartHandler(adsk.core.CustomEventHandler):
             logger = AuditLogger.instance()
             session.start_session(session_id, export_dir, start_time)
             logger.start_session_log(session_id)
-            logger.log("SESSION_AUTO_START", f"AirGap session auto-started. Export dir: {export_dir}")
+            logger.log(
+                "SESSION_AUTO_START", f"AirGap session auto-started. Export dir: {export_dir}"
+            )
 
             enforcer = get_enforcer()
             if not enforcer.activate(app, retries=5):
