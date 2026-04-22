@@ -6,7 +6,7 @@
     "description": {
         "": "Export control workflow safeguards. Forces offline mode, blocks cloud saves, enables local-only file export."
     },
-    "version": "1.0.3",
+    "version": "1.0.4",
     "runOnStartup": true,
     "supportedOS": "windows|mac"
 }
