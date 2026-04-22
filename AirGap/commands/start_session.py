@@ -40,16 +40,10 @@ class StartSessionCommand(adsk.core.CommandCreatedEventHandler):
 
             inputs.addBoolValueInput("browseDir", "Browse...", False, "", False)
 
-            inputs.addTextBoxCommandInput(
-                "confirmItarText",
-                "",
-                "All documents opened during this session will be treated as export-controlled.",
-                2,
-                True,
-            )
             inputs.addBoolValueInput(
                 "confirmItar",
-                "I understand",
+                "I understand all documents opened during "
+                "this session will be treated as export-controlled",
                 True,
                 "",
                 False,
