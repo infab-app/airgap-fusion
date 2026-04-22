@@ -5,7 +5,7 @@ import adsk.core
 
 import AirGap.config as config
 from AirGap.lib.audit_logger import AuditLogger
-from AirGap.lib.session_manager import ITARSessionManager
+from AirGap.lib.session_manager import SessionManager
 
 
 class OnlineStatusChangedHandler(adsk.core.ApplicationEventHandler):
@@ -14,7 +14,7 @@ class OnlineStatusChangedHandler(adsk.core.ApplicationEventHandler):
 
     def notify(self, args):
         try:
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
             if not session.is_protected:
                 return
             app = adsk.core.Application.get()
@@ -27,9 +27,9 @@ class OnlineStatusChangedHandler(adsk.core.ApplicationEventHandler):
                 )
                 ui = app.userInterface
                 ui.messageBox(
-                    "ITAR SESSION ACTIVE\n\n"
+                    "AIRGAP SESSION ACTIVE\n\n"
                     "Online mode was blocked. Fusion must remain offline "
-                    "during ITAR-protected sessions.\n\n"
+                    "during active AirGap sessions.\n\n"
                     'Use "Export Locally" to save your work.',
                     "AirGap - Warning",
                     adsk.core.MessageBoxButtonTypes.OKButtonType,
@@ -49,7 +49,7 @@ class OfflineViolationCustomHandler(adsk.core.CustomEventHandler):
             data = json.loads(event_args.additionalInfo)
             if not data.get("violation"):
                 return
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
             if not session.is_protected:
                 return
             app = adsk.core.Application.get()
@@ -62,9 +62,9 @@ class OfflineViolationCustomHandler(adsk.core.CustomEventHandler):
                 )
                 ui = app.userInterface
                 ui.messageBox(
-                    "ITAR SESSION ACTIVE\n\n"
+                    "AIRGAP SESSION ACTIVE\n\n"
                     "Online mode was blocked. Fusion must remain offline "
-                    "during ITAR-protected sessions.",
+                    "during active AirGap sessions.",
                     "AirGap - Warning",
                     adsk.core.MessageBoxButtonTypes.OKButtonType,
                     adsk.core.MessageBoxIconTypes.WarningIconType,
@@ -82,7 +82,7 @@ class OfflineMonitorThread(threading.Thread):
 
     def run(self):
         while not self._stop_event.wait(config.OFFLINE_CHECK_INTERVAL):
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
             if not session.is_protected:
                 continue
             try:

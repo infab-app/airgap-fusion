@@ -22,8 +22,8 @@ _VALID_TRANSITIONS = {
 }
 
 
-class ITARSessionManager:
-    _instance: Optional["ITARSessionManager"] = None
+class SessionManager:
+    _instance: Optional["SessionManager"] = None
 
     def __init__(self):
         self._state: SessionState = SessionState.UNPROTECTED
@@ -34,7 +34,7 @@ class ITARSessionManager:
         self._session_id: str = ""
 
     @classmethod
-    def instance(cls) -> "ITARSessionManager":
+    def instance(cls) -> "SessionManager":
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance

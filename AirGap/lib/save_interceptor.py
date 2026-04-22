@@ -1,7 +1,7 @@
 import adsk.core
 
 from AirGap.lib.audit_logger import AuditLogger
-from AirGap.lib.session_manager import ITARSessionManager
+from AirGap.lib.session_manager import SessionManager
 
 
 class DocumentSavingHandler(adsk.core.DocumentEventHandler):
@@ -11,7 +11,7 @@ class DocumentSavingHandler(adsk.core.DocumentEventHandler):
     def notify(self, args):
         try:
             event_args = adsk.core.DocumentEventArgs.cast(args)
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
             if not session.is_protected:
                 return
 
@@ -26,7 +26,7 @@ class DocumentSavingHandler(adsk.core.DocumentEventHandler):
             ui.messageBox(
                 f"CLOUD SAVE BLOCKED\n\n"
                 f"Document: {doc_name}\n\n"
-                f"Cloud saves are prohibited during ITAR sessions.\n"
+                f"Cloud saves are blocked during AirGap sessions.\n"
                 f'Use the AirGap "Export Locally" button to save '
                 f"files to your local or NAS storage.",
                 "AirGap - Save Blocked",
@@ -44,7 +44,7 @@ class DocumentOpenedHandler(adsk.core.DocumentEventHandler):
     def notify(self, args):
         try:
             event_args = adsk.core.DocumentEventArgs.cast(args)
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
             if not session.is_protected:
                 return
             if event_args.document:
@@ -62,7 +62,7 @@ class DocumentCreatedHandler(adsk.core.DocumentEventHandler):
     def notify(self, args):
         try:
             event_args = adsk.core.DocumentEventArgs.cast(args)
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
             if not session.is_protected:
                 return
             if event_args.document:
@@ -80,7 +80,7 @@ class DocumentClosedHandler(adsk.core.DocumentEventHandler):
     def notify(self, args):
         try:
             event_args = adsk.core.DocumentEventArgs.cast(args)
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
             if not session.is_protected:
                 return
             doc_name = event_args.document.name if event_args.document else "Unknown"

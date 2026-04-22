@@ -7,7 +7,7 @@ import adsk.fusion
 
 from AirGap.lib.audit_logger import AuditLogger
 from AirGap.lib.export_manager import LocalExportManager
-from AirGap.lib.session_manager import ITARSessionManager
+from AirGap.lib.session_manager import SessionManager
 
 _handlers = []
 
@@ -20,7 +20,7 @@ class ExportLocalCommand(adsk.core.CommandCreatedEventHandler):
         try:
             cmd = args.command
             inputs = cmd.commandInputs
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
             app = adsk.core.Application.get()
 
             inputs.addStringValueInput("exportDir", "Export Directory", session.export_directory)
@@ -131,7 +131,7 @@ class ExportExecuteHandler(adsk.core.CommandEventHandler):
             app = adsk.core.Application.get()
             ui = app.userInterface
             inputs = args.command.commandInputs
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
 
             export_dir = Path(inputs.itemById("exportDir").value.strip())
             export_dir.mkdir(parents=True, exist_ok=True)
