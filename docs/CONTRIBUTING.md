@@ -37,6 +37,13 @@ ruff format .
 ruff check --fix .
 ```
 
+**If `ruff` is not found in your PATH**, you can run it as a Python module instead:
+```
+python3 -m ruff check .
+python3 -m ruff format .
+```
+This is common on macOS when `pip install` places binaries in a directory not on your shell's PATH.
+
 ### VS Code Setup
 
 If you use VS Code, install the [Ruff extension](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff). It reads `ruff.toml` automatically and provides inline lint warnings and format-on-save.
