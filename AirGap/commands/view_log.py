@@ -51,9 +51,15 @@ class ViewLogExecuteHandler(adsk.core.CommandEventHandler):
             if sys.platform == "win32":
                 import os
 
-                os.startfile(path_str)
+                if log_path.is_file():
+                    subprocess.Popen(["explorer", "/select,", path_str])
+                else:
+                    os.startfile(path_str)
             else:
-                subprocess.Popen(["open", path_str])
+                if log_path.is_file():
+                    subprocess.Popen(["open", "-R", path_str])
+                else:
+                    subprocess.Popen(["open", path_str])
         except Exception:
             app = adsk.core.Application.get()
             app.userInterface.messageBox(f"Error opening log:\n{traceback.format_exc()}")
