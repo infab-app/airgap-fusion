@@ -45,7 +45,11 @@ class SessionManager:
 
     @property
     def is_protected(self) -> bool:
-        return self._state in (SessionState.PROTECTED, SessionState.ACTIVATING)
+        return self._state in (
+            SessionState.PROTECTED,
+            SessionState.ACTIVATING,
+            SessionState.DEACTIVATING,
+        )
 
     @property
     def export_directory(self) -> str:
