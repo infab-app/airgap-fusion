@@ -2,11 +2,11 @@ import traceback
 
 import adsk.core
 
-from AirGap.commands.start_session import get_enforcer, get_interceptor
-from AirGap.lib.audit_logger import AuditLogger
-from AirGap.lib.persistence import SessionPersistence
-from AirGap.lib.session_manager import SessionManager, SessionState
-from AirGap.lib.ui_components import update_button_visibility
+from commands.start_session import get_enforcer, get_interceptor
+from lib.audit_logger import AuditLogger
+from lib.persistence import SessionPersistence
+from lib.session_manager import SessionManager, SessionState
+from lib.ui_components import update_button_visibility
 
 _handlers = []
 

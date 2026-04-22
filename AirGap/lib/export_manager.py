@@ -5,7 +5,7 @@ import adsk.cam
 import adsk.core
 import adsk.fusion
 
-from AirGap.lib.audit_logger import AuditLogger
+from lib.audit_logger import AuditLogger
 
 
 class LocalExportManager:

@@ -1,7 +1,7 @@
 import adsk.core
 
-from AirGap.lib.audit_logger import AuditLogger
-from AirGap.lib.session_manager import SessionManager
+from lib.audit_logger import AuditLogger
+from lib.session_manager import SessionManager
 
 
 class DocumentSavingHandler(adsk.core.DocumentEventHandler):
