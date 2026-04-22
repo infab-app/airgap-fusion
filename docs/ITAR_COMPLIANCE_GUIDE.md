@@ -12,7 +12,7 @@ Organizations handling ITAR-controlled data should consult with their compliance
 
 1. **Forces Offline Mode** — Programmatically sets Fusion 360 to offline mode before any ITAR work begins. Monitors and re-enforces if toggled.
 2. **Blocks Cloud Saves** — Intercepts all save operations and cancels them. Users must use "Export Locally" instead.
-3. **Local-Only Export** — Provides export to .f3d, STEP, STL, IGES, and CAM formats directly to local or network-attached storage.
+3. **Local-Only Export** — Provides export to .f3d, STEP, STL, IGES, and SAT formats directly to local or network-attached storage.
 4. **Audit Logging** — Records all session events in append-only JSONL log files for compliance auditing.
 5. **Crash Recovery** — If Fusion crashes during an ITAR session, AirGap forces offline mode on restart and offers to restore the session.
 
@@ -162,8 +162,6 @@ Each entry contains:
 | EXPORT_STEP | INFO | STEP file exported |
 | EXPORT_STL | INFO | STL file exported |
 | EXPORT_IGES | INFO | IGES file exported |
-| EXPORT_NC | INFO | NC code post-processed |
-| EXPORT_SETUP_SHEET | INFO | Setup sheet generated |
 | EXPORT_ERROR | ERROR | Export operation failed |
 | DEACTIVATION_BLOCKED | WARNING | Session end blocked (unexported docs) |
 | CRASH_RECOVERY | WARNING | Session restored after crash |

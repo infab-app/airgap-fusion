@@ -1,5 +1,4 @@
 import traceback
-from pathlib import Path
 
 import adsk.cam
 import adsk.core
@@ -107,69 +106,6 @@ class LocalExportManager:
         except Exception:
             AuditLogger.instance().log(
                 "EXPORT_ERROR", f"SAT export failed: {traceback.format_exc()}", "ERROR"
-            )
-            return False
-
-    @staticmethod
-    def post_process_cam(output_folder: str, program_name: str = "program", setup=None) -> bool:
-        try:
-            app = adsk.core.Application.get()
-            doc = app.activeDocument
-            cam_product = adsk.cam.CAM.cast(doc.products.itemByProductType("CAMProductType"))
-            if not cam_product:
-                return False
-
-            target_setup = setup or cam_product.setups.item(0)
-            if not target_setup:
-                return False
-
-            output_path = Path(output_folder)
-            output_path.mkdir(parents=True, exist_ok=True)
-
-            post_config = cam_product.genericPostFolder
-            post_input = adsk.cam.PostProcessInput.create(
-                str(program_name),
-                str(post_config),
-                str(output_path),
-                adsk.cam.PostOutputUnitOptions.DocumentUnitsOutput,
-            )
-            cam_product.postProcess(target_setup, post_input)
-
-            AuditLogger.instance().log("EXPORT_NC", f"NC code posted to: {output_folder}")
-            return True
-        except Exception:
-            AuditLogger.instance().log(
-                "EXPORT_ERROR", f"CAM post-process failed: {traceback.format_exc()}", "ERROR"
-            )
-            return False
-
-    @staticmethod
-    def generate_setup_sheet(output_folder: str, setup=None) -> bool:
-        try:
-            app = adsk.core.Application.get()
-            doc = app.activeDocument
-            cam_product = adsk.cam.CAM.cast(doc.products.itemByProductType("CAMProductType"))
-            if not cam_product:
-                return False
-
-            target_setup = setup or cam_product.setups.item(0)
-            if not target_setup:
-                return False
-
-            output_path = Path(output_folder)
-            output_path.mkdir(parents=True, exist_ok=True)
-
-            cam_product.generateSetupSheet(
-                adsk.cam.SetupSheetFormats.HTMLSetupSheetFormat, str(output_path), target_setup
-            )
-
-            AuditLogger.instance().log(
-                "EXPORT_SETUP_SHEET", f"Setup sheet generated at: {output_folder}"
-            )
-            return True
-        except Exception:
-            AuditLogger.instance().log(
-                "EXPORT_ERROR", f"Setup sheet generation failed: {traceback.format_exc()}", "ERROR"
             )
             return False
 

@@ -14,14 +14,14 @@ UNPROTECTED → ACTIVATING → PROTECTED → DEACTIVATING → UNPROTECTED
 
 1. **Start Session** — Forces Fusion into offline mode, begins monitoring
 2. **Work in Protected Mode** — Cloud saves are blocked, all opened documents are tracked
-3. **Export Locally** — Save .f3d, STEP, STL, IGES files and CAM output to local or network-attached storage
+3. **Export Locally** — Save .f3d, STEP, STL, IGES files to local or network-attached storage
 4. **End Session** — Verifies all documents were exported and closed before allowing deactivation
 
 ### Key Features
 
 - **Offline Enforcement** — Programmatically sets `app.isOffLine = True` and monitors via event handlers and a polling thread. If someone toggles Fusion back online, AirGap immediately re-enforces offline mode.
 - **Cloud Save Blocking** — Intercepts save operations via the `documentSaving` event and cancels them with a warning directing the user to export locally.
-- **Local Export** — Supports F3D (Fusion Archive), STEP, STL, IGES, SAT, CAM NC code post-processing, and setup sheet generation.
+- **Local Export** — Supports F3D (Fusion Archive), STEP, STL, IGES, and SAT.
 - **Audit Logging** — Append-only JSONL logs record every session event (start, stop, exports, blocked saves, violations) for compliance auditing.
 - **Crash Recovery** — Session state is persisted to disk. If Fusion crashes during a session, AirGap forces offline mode on restart and offers to restore the session.
 - **Cross-Platform** — Single Python codebase for Windows and macOS.
@@ -100,7 +100,7 @@ Once running, AirGap adds an **AirGap** tab to the toolbar in both the Design an
 ### Exporting Files
 
 1. Click **Export Locally**
-2. Select formats: F3D, STEP, STL, IGES (and CAM options if applicable)
+2. Select formats: F3D, STEP, STL, IGES
 3. Choose the target component
 4. Click **OK** — Files are saved to your local export directory
 
