@@ -4,7 +4,7 @@ from pathlib import Path
 
 ADDIN_NAME = "AirGap"
 COMPANY_NAME = "Infab"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 ADDIN_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 
