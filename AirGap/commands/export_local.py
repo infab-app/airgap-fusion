@@ -1,7 +1,6 @@
 import traceback
 from pathlib import Path
 
-import adsk.cam
 import adsk.core
 import adsk.fusion
 
@@ -44,16 +43,18 @@ class ExportLocalCommand(adsk.core.CommandCreatedEventHandler):
             inputs.addBoolValueInput("exportSTL", "STL (.stl)", True, "", False)
             inputs.addBoolValueInput("exportIGES", "IGES (.iges)", True, "", False)
 
-            has_cam = LocalExportManager.has_cam_product()
-            cam_group = inputs.addGroupCommandInput("camGroup", "CAM Export")
-            cam_group.isExpanded = has_cam
-            cam_group.isVisible = has_cam
-
-            cam_children = cam_group.children
-            cam_children.addBoolValueInput("exportNC", "Post-Process NC Code", True, "", False)
-            cam_children.addBoolValueInput(
-                "exportSetupSheet", "Generate Setup Sheet", True, "", False
-            )
+            if LocalExportManager.has_cam_product():
+                cam_info = inputs.addTextBoxCommandInput(
+                    "camInfo",
+                    "CAM / Post Processing",
+                    "Post processing is safe while AirGap is active. Use Fusion's "
+                    "NC Program dialog to generate G-code. Post processing runs "
+                    "entirely on your local machine \u2014 your NC output is saved to "
+                    "your chosen folder, not to Autodesk servers.",
+                    4,
+                    True,
+                )
+                cam_info.isFullWidth = True
 
             execute_handler = ExportExecuteHandler()
             cmd.execute.add(execute_handler)
@@ -110,13 +111,6 @@ class ExportValidateHandler(adsk.core.ValidateInputsEventHandler):
                     has_format = True
                     break
 
-            cam_group = inputs.itemById("camGroup")
-            if cam_group and cam_group.isVisible:
-                nc_input = cam_group.children.itemById("exportNC")
-                sheet_input = cam_group.children.itemById("exportSetupSheet")
-                if (nc_input and nc_input.value) or (sheet_input and sheet_input.value):
-                    has_format = True
-
             args.areInputsValid = bool(dir_input.value.strip()) and has_format
         except Exception:
             args.areInputsValid = False
@@ -169,20 +163,6 @@ class ExportExecuteHandler(adsk.core.CommandEventHandler):
                 filepath = str(export_dir / f"{safe_name}.iges")
                 ok = LocalExportManager.export_iges(filepath, target_component)
                 results.append(("IGES", filepath, ok))
-
-            cam_group = inputs.itemById("camGroup")
-            if cam_group and cam_group.isVisible:
-                nc_input = cam_group.children.itemById("exportNC")
-                if nc_input and nc_input.value:
-                    cam_dir = str(export_dir / "cam_output")
-                    ok = LocalExportManager.post_process_cam(cam_dir, safe_name)
-                    results.append(("NC Code", cam_dir, ok))
-
-                sheet_input = cam_group.children.itemById("exportSetupSheet")
-                if sheet_input and sheet_input.value:
-                    sheet_dir = str(export_dir / "setup_sheets")
-                    ok = LocalExportManager.generate_setup_sheet(sheet_dir)
-                    results.append(("Setup Sheet", sheet_dir, ok))
 
             all_ok = all(r[2] for r in results)
             if all_ok and doc_name != "export":
