@@ -29,7 +29,7 @@ class SettingsCommand(adsk.core.CommandCreatedEventHandler):
 
             inputs.addBoolValueInput(
                 "autoSession",
-                "Auto-start ITAR session on Fusion startup",
+                "Auto-start AirGap session on Fusion startup",
                 True,
                 "",
                 settings.auto_start_session,

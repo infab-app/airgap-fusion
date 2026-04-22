@@ -16,15 +16,15 @@ def register_commands(ui: adsk.core.UserInterface):
     commands = [
         (
             config.CMD_START_SESSION,
-            "Start ITAR Session",
-            "Activate ITAR compliance mode. Forces offline, blocks cloud saves.",
+            "Start AirGap Session",
+            "Start an AirGap session. Forces offline, blocks cloud saves.",
             config.ICON_AIRGAP_OFF,
             StartSessionCommand,
         ),
         (
             config.CMD_STOP_SESSION,
-            "Stop ITAR Session",
-            "Deactivate ITAR session. Requires all docs exported and closed.",
+            "Stop AirGap Session",
+            "End the AirGap session. Requires all docs exported and closed.",
             config.ICON_AIRGAP_ON,
             StopSessionCommand,
         ),
@@ -38,7 +38,7 @@ def register_commands(ui: adsk.core.UserInterface):
         (
             config.CMD_VIEW_LOG,
             "View Audit Log",
-            "Open the ITAR compliance audit log.",
+            "Open the AirGap audit log.",
             "",
             ViewLogCommand,
         ),

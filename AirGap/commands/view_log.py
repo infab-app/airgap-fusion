@@ -42,7 +42,7 @@ class ViewLogExecuteHandler(adsk.core.CommandEventHandler):
                 if not log_path.exists():
                     app = adsk.core.Application.get()
                     app.userInterface.messageBox(
-                        "No audit logs found.\n\nStart an ITAR session to begin logging.",
+                        "No audit logs found.\n\nStart an AirGap session to begin logging.",
                         "AirGap - Audit Log",
                     )
                     return

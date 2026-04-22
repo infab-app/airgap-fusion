@@ -4,7 +4,7 @@
     "id": "airgap-f360-itar-compliance-00001",
     "author": "Infab",
     "description": {
-        "": "ITAR compliance workflow enforcement. Forces offline mode, blocks cloud saves, enables local-only file export."
+        "": "Export control workflow safeguards. Forces offline mode, blocks cloud saves, enables local-only file export."
     },
     "version": "1.0.0",
     "runOnStartup": true,

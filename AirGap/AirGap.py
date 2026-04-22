@@ -15,7 +15,7 @@ from AirGap.commands.start_session import get_enforcer, get_interceptor
 from AirGap.lib import ui_components
 from AirGap.lib.audit_logger import AuditLogger
 from AirGap.lib.persistence import SessionPersistence
-from AirGap.lib.session_manager import ITARSessionManager, SessionState
+from AirGap.lib.session_manager import SessionManager, SessionState
 from AirGap.lib.settings import Settings
 
 _app = None
@@ -46,7 +46,7 @@ def run(context):
 def stop(context):
     global _auto_start_event
     try:
-        session = ITARSessionManager.instance()
+        session = SessionManager.instance()
         if session.is_protected:
             SessionPersistence.save_state(session)
             AuditLogger.instance().log(
@@ -97,19 +97,19 @@ def _handle_crash_recovery(app: adsk.core.Application, ui: adsk.core.UserInterfa
     exported_count = len(saved_state.get("exported_documents", []))
 
     result = ui.messageBox(
-        "AirGap detected an unclean shutdown while an ITAR session "
+        "AirGap detected an unclean shutdown while an AirGap session "
         "was active.\n\n"
         f"Previous session had {tracked_count} tracked document(s), "
         f"{exported_count} exported.\n\n"
         "Fusion has been placed in offline mode as a precaution.\n\n"
-        "Would you like to restore the ITAR session?",
+        "Would you like to restore the AirGap session?",
         "AirGap - Crash Recovery",
         adsk.core.MessageBoxButtonTypes.YesNoButtonType,
         adsk.core.MessageBoxIconTypes.WarningIconType,
     )
 
     if result == adsk.core.DialogResults.DialogYes:
-        session = ITARSessionManager.instance()
+        session = SessionManager.instance()
         SessionPersistence.restore_session(session, saved_state)
 
         enforcer = get_enforcer()
@@ -125,7 +125,7 @@ def _handle_crash_recovery(app: adsk.core.Application, ui: adsk.core.UserInterfa
         ui.messageBox(
             "Session not restored. Fusion remains offline.\n\n"
             "You may manually go online when you are confident "
-            "no ITAR data is present.",
+            "no export-controlled data is present.",
             "AirGap",
             adsk.core.MessageBoxButtonTypes.OKButtonType,
             adsk.core.MessageBoxIconTypes.InformationIconType,
@@ -135,7 +135,7 @@ def _handle_crash_recovery(app: adsk.core.Application, ui: adsk.core.UserInterfa
 def _schedule_auto_start(app: adsk.core.Application):
     global _auto_start_event
 
-    session = ITARSessionManager.instance()
+    session = SessionManager.instance()
     if session.is_protected:
         return
 
@@ -199,7 +199,7 @@ class _AutoStartHandler(adsk.core.CustomEventHandler):
         try:
             app = adsk.core.Application.get()
             ui = app.userInterface
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
 
             if session.is_protected:
                 return
@@ -231,7 +231,9 @@ class _AutoStartHandler(adsk.core.CustomEventHandler):
             logger = AuditLogger.instance()
             session.start_session(session_id, export_dir, start_time)
             logger.start_session_log(session_id)
-            logger.log("SESSION_AUTO_START", f"ITAR session auto-started. Export dir: {export_dir}")
+            logger.log(
+                "SESSION_AUTO_START", f"AirGap session auto-started. Export dir: {export_dir}"
+            )
 
             enforcer = get_enforcer()
             if not enforcer.activate(app, retries=5):
@@ -243,7 +245,7 @@ class _AutoStartHandler(adsk.core.CustomEventHandler):
                 logger.end_session_log()
                 ui.messageBox(
                     "AirGap auto-start failed: could not enable offline mode.\n\n"
-                    "Please start the ITAR session manually.",
+                    "Please start the AirGap session manually.",
                     "AirGap - Error",
                     adsk.core.MessageBoxButtonTypes.OKButtonType,
                     adsk.core.MessageBoxIconTypes.CriticalIconType,
@@ -263,7 +265,7 @@ class _AutoStartHandler(adsk.core.CustomEventHandler):
             ui_components.update_button_visibility(SessionState.PROTECTED)
 
             ui.messageBox(
-                "ITAR SESSION AUTO-STARTED\n\n"
+                "AIRGAP SESSION AUTO-STARTED\n\n"
                 f"Session ID: {session_id}\n"
                 f"Export Directory: {export_dir}\n\n"
                 "Fusion is offline and cloud saves are blocked.\n\n"

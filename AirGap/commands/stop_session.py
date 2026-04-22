@@ -5,7 +5,7 @@ import adsk.core
 from AirGap.commands.start_session import get_enforcer, get_interceptor
 from AirGap.lib.audit_logger import AuditLogger
 from AirGap.lib.persistence import SessionPersistence
-from AirGap.lib.session_manager import ITARSessionManager, SessionState
+from AirGap.lib.session_manager import SessionManager, SessionState
 from AirGap.lib.ui_components import update_button_visibility
 
 _handlers = []
@@ -19,7 +19,7 @@ class StopSessionCommand(adsk.core.CommandCreatedEventHandler):
         try:
             cmd = args.command
             inputs = cmd.commandInputs
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
 
             tracked = session.tracked_documents
             exported = session.exported_documents
@@ -45,14 +45,14 @@ class StopSessionCommand(adsk.core.CommandCreatedEventHandler):
                     "WARNING",
                     f'<b style="color:red">{len(unexported)} document(s) have NOT been '
                     f"exported locally. You must export all documents before ending "
-                    f"the ITAR session.</b>",
+                    f"the AirGap session.</b>",
                     3,
                     True,
                 )
 
             inputs.addBoolValueInput(
                 "confirmExport",
-                "I confirm all ITAR data has been exported and no ITAR documents remain open",
+                "I confirm all export-controlled data has been exported and no protected documents remain open",
                 True,
                 "",
                 False,
@@ -88,7 +88,7 @@ class StopSessionValidateHandler(adsk.core.ValidateInputsEventHandler):
     def notify(self, args):
         try:
             inputs = args.inputs
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
 
             confirm_export = inputs.itemById("confirmExport")
             confirm_cache = inputs.itemById("confirmCache")
@@ -124,7 +124,7 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
         try:
             app = adsk.core.Application.get()
             ui = app.userInterface
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
             logger = AuditLogger.instance()
 
             if not session.transition_to(SessionState.DEACTIVATING):
@@ -148,7 +148,7 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                 )
                 return
 
-            logger.log("SESSION_END", "ITAR session ended cleanly")
+            logger.log("SESSION_END", "AirGap session ended cleanly")
 
             get_enforcer().deactivate()
             get_interceptor().deactivate()
@@ -161,12 +161,12 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
             update_button_visibility(SessionState.UNPROTECTED)
 
             ui.messageBox(
-                "ITAR SESSION ENDED\n\n"
+                "AIRGAP SESSION ENDED\n\n"
                 "Offline enforcement and save blocking have been deactivated.\n\n"
                 "IMPORTANT: Fusion is still in offline mode. You must "
-                "manually go online when you are confident no ITAR data "
+                "manually go online when you are confident no export-controlled data "
                 "remains in Fusion's local cache.\n\n"
-                "Refer to the ITAR Compliance Guide for cache clearing "
+                "Refer to the compliance guide for cache clearing "
                 "procedures.",
                 "AirGap - Session Ended",
                 adsk.core.MessageBoxButtonTypes.OKButtonType,

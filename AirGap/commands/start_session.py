@@ -8,7 +8,7 @@ from AirGap.lib.audit_logger import AuditLogger
 from AirGap.lib.offline_enforcer import OfflineEnforcer
 from AirGap.lib.persistence import SessionPersistence
 from AirGap.lib.save_interceptor import SaveInterceptor
-from AirGap.lib.session_manager import ITARSessionManager, SessionState, is_default_document
+from AirGap.lib.session_manager import SessionManager, SessionState, is_default_document
 from AirGap.lib.settings import Settings
 from AirGap.lib.ui_components import update_button_visibility
 
@@ -43,7 +43,7 @@ class StartSessionCommand(adsk.core.CommandCreatedEventHandler):
             inputs.addBoolValueInput(
                 "confirmItar",
                 "I understand all documents opened during "
-                "this session will be treated as ITAR-controlled",
+                "this session will be treated as export-controlled",
                 True,
                 "",
                 False,
@@ -128,12 +128,12 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
             export_path = Path(export_dir)
             export_path.mkdir(parents=True, exist_ok=True)
 
-            session = ITARSessionManager.instance()
+            session = SessionManager.instance()
             logger = AuditLogger.instance()
 
             if not session.transition_to(SessionState.ACTIVATING):
                 ui.messageBox(
-                    "Cannot start ITAR session: invalid state transition.", "AirGap - Error"
+                    "Cannot start AirGap session: invalid state transition.", "AirGap - Error"
                 )
                 return
 
@@ -141,7 +141,7 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
             start_time = datetime.datetime.now().isoformat()
             session.start_session(session_id, export_dir, start_time)
             logger.start_session_log(session_id)
-            logger.log("SESSION_START", f"ITAR session initiated. Export dir: {export_dir}")
+            logger.log("SESSION_START", f"AirGap session initiated. Export dir: {export_dir}")
 
             if not _enforcer.activate(app):
                 logger.log("SESSION_ABORT", "Could not enable offline mode", "CRITICAL")
@@ -149,7 +149,7 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
                 session.reset()
                 logger.end_session_log()
                 ui.messageBox(
-                    "FAILED TO START ITAR SESSION\n\n"
+                    "FAILED TO START AIRGAP SESSION\n\n"
                     "Could not enable offline mode. Fusion may not support "
                     "programmatic offline control in this version.\n\n"
                     "Please manually enable offline mode and try again.",
@@ -179,7 +179,7 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
                     logger.log("DOC_OPENED", f"Active document tracked: {doc_name}")
 
             ui.messageBox(
-                "ITAR SESSION ACTIVE\n\n"
+                "AIRGAP SESSION ACTIVE\n\n"
                 f"Session ID: {session_id}\n"
                 f"Export Directory: {export_dir}\n\n"
                 "- Fusion is now OFFLINE\n"
