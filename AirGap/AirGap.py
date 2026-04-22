@@ -11,6 +11,86 @@ _addin_path = os.path.dirname(os.path.abspath(__file__))
 if _addin_path not in sys.path:
     sys.path.insert(0, _addin_path)
 
+
+def _apply_pending_update():
+    import json
+    import shutil
+    from pathlib import Path
+
+    if sys.platform == "win32":
+        base_dir = Path(os.environ.get("APPDATA", Path.home())) / ".airgap"
+    else:
+        base_dir = Path.home() / ".airgap"
+
+    pending_file = base_dir / "update_pending.json"
+    if not pending_file.exists():
+        return False
+
+    try:
+        with open(pending_file, encoding="utf-8") as f:
+            pending = json.load(f)
+
+        staging_path = Path(pending["staging_path"])
+        if not staging_path.exists():
+            pending_file.unlink(missing_ok=True)
+            return False
+
+        addin_dir = Path(_addin_path)
+        backup_dir = base_dir / "update_backup"
+
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir)
+        backup_dir.mkdir(parents=True, exist_ok=True)
+
+        for item in addin_dir.iterdir():
+            if item.name.startswith("."):
+                continue
+            dest = backup_dir / item.name
+            if item.is_dir():
+                shutil.copytree(item, dest)
+            else:
+                shutil.copy2(item, dest)
+
+        try:
+            for item in staging_path.iterdir():
+                dest = addin_dir / item.name
+                if item.is_dir():
+                    if dest.exists():
+                        shutil.rmtree(dest)
+                    shutil.copytree(item, dest)
+                else:
+                    shutil.copy2(item, dest)
+        except Exception:
+            for item in backup_dir.iterdir():
+                dest = addin_dir / item.name
+                if item.is_dir():
+                    if dest.exists():
+                        shutil.rmtree(dest)
+                    shutil.copytree(item, dest)
+                else:
+                    shutil.copy2(item, dest)
+            pending_file.unlink(missing_ok=True)
+            return False
+
+        shutil.rmtree(backup_dir, ignore_errors=True)
+        staging_parent = staging_path.parent
+        if staging_parent.name == "extracted":
+            shutil.rmtree(staging_parent.parent, ignore_errors=True)
+        else:
+            shutil.rmtree(staging_parent, ignore_errors=True)
+        pending_file.unlink(missing_ok=True)
+        return True
+
+    except Exception:
+        try:
+            pending_file.unlink(missing_ok=True)
+        except Exception:
+            pass
+        return False
+
+
+_update_applied = _apply_pending_update()
+
 from commands.start_session import get_enforcer, get_interceptor
 from lib import ui_components
 from lib.audit_logger import AuditLogger
@@ -24,9 +104,12 @@ _auto_start_event = None
 _auto_start_handlers = []
 _crash_recovery_event = None
 _crash_recovery_handlers = []
+_update_check_event = None
+_update_check_handlers = []
 
 CUSTOM_EVENT_AUTO_START = "AirGap_AutoStart"
 CUSTOM_EVENT_CRASH_RECOVERY = "AirGap_CrashRecoveryComplete"
+CUSTOM_EVENT_UPDATE_CHECK = "AirGap_UpdateCheck"
 
 
 def run(context):
@@ -34,6 +117,17 @@ def run(context):
     try:
         _app = adsk.core.Application.get()
         _ui = _app.userInterface
+
+        if _update_applied:
+            import config as cfg
+
+            _ui.messageBox(
+                f"AirGap has been updated to version {cfg.VERSION}.\n\n"
+                "See the release notes on GitHub for details.",
+                "AirGap - Updated",
+                adsk.core.MessageBoxButtonTypes.OKButtonType,
+                adsk.core.MessageBoxIconTypes.InformationIconType,
+            )
 
         restored = _handle_crash_recovery(_app, _ui)
 
@@ -44,6 +138,7 @@ def run(context):
             _schedule_crash_recovery_completion(_app)
         else:
             _schedule_auto_start(_app)
+            _schedule_update_check(_app)
 
     except Exception:
         if _ui:
@@ -51,7 +146,7 @@ def run(context):
 
 
 def stop(context):
-    global _auto_start_event, _crash_recovery_event
+    global _auto_start_event, _crash_recovery_event, _update_check_event
     try:
         session = SessionManager.instance()
         if session.is_protected:
@@ -77,12 +172,18 @@ def stop(context):
                 _app.unregisterCustomEvent(CUSTOM_EVENT_CRASH_RECOVERY)
             except Exception:
                 pass
+            try:
+                _app.unregisterCustomEvent(CUSTOM_EVENT_UPDATE_CHECK)
+            except Exception:
+                pass
             ui_components.destroy_ui(_app)
 
         _auto_start_handlers.clear()
         _auto_start_event = None
         _crash_recovery_handlers.clear()
         _crash_recovery_event = None
+        _update_check_handlers.clear()
+        _update_check_event = None
 
     except Exception:
         if _ui:
@@ -367,3 +468,87 @@ class _AutoStartHandler(adsk.core.CustomEventHandler):
                 )
             except Exception:
                 pass
+
+
+def _schedule_update_check(app: adsk.core.Application):
+    global _update_check_event
+
+    if _update_applied:
+        return
+
+    settings = Settings.reload()
+    if not settings.auto_check_updates:
+        return
+
+    session = SessionManager.instance()
+    if session.is_protected:
+        return
+
+    _update_check_event = app.registerCustomEvent(CUSTOM_EVENT_UPDATE_CHECK)
+    handler = _UpdateCheckHandler()
+    _update_check_event.add(handler)
+    _update_check_handlers.append(handler)
+
+    thread = threading.Thread(target=_check_update_after_ready, args=(app, settings.update_channel))
+    thread.daemon = True
+    thread.start()
+
+
+def _check_update_after_ready(app: adsk.core.Application, channel: str):
+    import json
+    import time
+
+    import config as cfg
+
+    deadline = time.monotonic() + cfg.AUTO_START_READY_TIMEOUT
+    while time.monotonic() < deadline:
+        try:
+            if hasattr(app, "isStartupComplete") and app.isStartupComplete:
+                break
+            if app.activeViewport is not None:
+                break
+        except Exception:
+            pass
+        time.sleep(cfg.AUTO_START_READY_POLL)
+
+    time.sleep(cfg.AUTO_START_POST_READY_DELAY)
+
+    try:
+        from lib.updater import check_for_update
+
+        result = check_for_update(channel)
+        if result.update_available and not result.error:
+            payload = json.dumps(
+                {"version": result.latest_version, "prerelease": result.is_prerelease}
+            )
+            app.fireCustomEvent(CUSTOM_EVENT_UPDATE_CHECK, payload)
+    except Exception:
+        pass
+
+
+class _UpdateCheckHandler(adsk.core.CustomEventHandler):
+    def __init__(self):
+        super().__init__()
+
+    def notify(self, args):
+        try:
+            import json
+
+            app = adsk.core.Application.get()
+            ui = app.userInterface
+
+            payload = json.loads(args.additionalInfo) if args.additionalInfo else {}
+            version = payload.get("version", "")
+            prerelease = payload.get("prerelease", False)
+
+            label = f"{version} (beta)" if prerelease else version
+
+            ui.messageBox(
+                f"A new version of AirGap is available: {label}\n\n"
+                'Use "Check for Updates" in the AirGap toolbar to download it.',
+                "AirGap - Update Available",
+                adsk.core.MessageBoxButtonTypes.OKButtonType,
+                adsk.core.MessageBoxIconTypes.InformationIconType,
+            )
+        except Exception:
+            pass

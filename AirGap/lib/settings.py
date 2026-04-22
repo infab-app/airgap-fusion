@@ -8,6 +8,8 @@ _DEFAULTS = {
     "auto_offline_on_startup": False,
     "auto_start_session": False,
     "default_export_directory": str(config.DEFAULT_EXPORT_DIR),
+    "update_channel": "stable",
+    "auto_check_updates": False,
     "version": 1,
 }
 
@@ -74,3 +76,20 @@ class Settings:
     @default_export_directory.setter
     def default_export_directory(self, value: str):
         self._data["default_export_directory"] = value
+
+    @property
+    def update_channel(self) -> str:
+        return self._data.get("update_channel", "stable")
+
+    @update_channel.setter
+    def update_channel(self, value: str):
+        if value in ("stable", "beta"):
+            self._data["update_channel"] = value
+
+    @property
+    def auto_check_updates(self) -> bool:
+        return bool(self._data.get("auto_check_updates", False))
+
+    @auto_check_updates.setter
+    def auto_check_updates(self, value: bool):
+        self._data["auto_check_updates"] = value

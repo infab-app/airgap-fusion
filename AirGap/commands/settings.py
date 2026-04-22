@@ -41,6 +41,22 @@ class SettingsCommand(adsk.core.CommandCreatedEventHandler):
 
             inputs.addBoolValueInput("browseDir", "Browse...", False, "", False)
 
+            inputs.addBoolValueInput(
+                "autoCheckUpdates",
+                "Check for updates when Fusion starts",
+                True,
+                "",
+                settings.auto_check_updates,
+            )
+
+            channel_dropdown = inputs.addDropDownCommandInput(
+                "updateChannel",
+                "Update Channel",
+                adsk.core.DropDownStyles.TextListDropDownStyle,
+            )
+            channel_dropdown.listItems.add("Stable", settings.update_channel == "stable")
+            channel_dropdown.listItems.add("Beta", settings.update_channel == "beta")
+
             inputs.addTextBoxCommandInput(
                 "settingsInfo", "Settings File", str(config.SETTINGS_FILE), 1, True
             )
@@ -118,6 +134,12 @@ class SettingsExecuteHandler(adsk.core.CommandEventHandler):
             settings.auto_offline_on_startup = inputs.itemById("autoOffline").value
             settings.auto_start_session = inputs.itemById("autoSession").value
             settings.default_export_directory = inputs.itemById("defaultExportDir").value.strip()
+            settings.auto_check_updates = inputs.itemById("autoCheckUpdates").value
+
+            channel_input = inputs.itemById("updateChannel")
+            selected = channel_input.selectedItem
+            if selected:
+                settings.update_channel = selected.name.lower()
 
             settings.save()
 
@@ -125,7 +147,9 @@ class SettingsExecuteHandler(adsk.core.CommandEventHandler):
                 "SETTINGS_CHANGED",
                 f"Settings updated: auto_offline={settings.auto_offline_on_startup}, "
                 f"auto_session={settings.auto_start_session}, "
-                f"export_dir={settings.default_export_directory}",
+                f"export_dir={settings.default_export_directory}, "
+                f"auto_check_updates={settings.auto_check_updates}, "
+                f"update_channel={settings.update_channel}",
             )
 
             app = adsk.core.Application.get()
