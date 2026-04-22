@@ -4,7 +4,11 @@ import adsk.core
 import adsk.fusion
 
 import config
+from lib.audit_logger import AuditLogger
 from lib.session_manager import SessionManager, SessionState
+
+_VISIBLE_WHEN_PROTECTED = {config.CMD_STOP_SESSION, config.CMD_EXPORT_LOCAL}
+_VISIBLE_WHEN_UNPROTECTED = {config.CMD_START_SESSION}
 
 _panels_created = []
 _tabs_created = []
@@ -32,6 +36,8 @@ def create_ui(app: adsk.core.Application):
             panel = tab.toolbarPanels.add(config.TOOLBAR_PANEL_ID, "Export Control")
             _panels_created.append(panel)
 
+        is_protected = SessionManager.instance().is_protected
+
         cmd_ids = [
             config.CMD_START_SESSION,
             config.CMD_STOP_SESSION,
@@ -40,14 +46,23 @@ def create_ui(app: adsk.core.Application):
             config.CMD_SETTINGS,
         ]
         for cmd_id in cmd_ids:
-            if panel.controls.itemById(cmd_id):
-                continue
-            cmd_def = ui.commandDefinitions.itemById(cmd_id)
-            if cmd_def:
-                ctrl = panel.controls.addCommand(cmd_def)
-                ctrl.isVisible = True
+            ctrl = panel.controls.itemById(cmd_id)
+            if not ctrl:
+                cmd_def = ui.commandDefinitions.itemById(cmd_id)
+                if cmd_def:
+                    ctrl = panel.controls.addCommand(cmd_def)
 
-    update_button_visibility(SessionManager.instance().state)
+            if ctrl:
+                if cmd_id in _VISIBLE_WHEN_PROTECTED:
+                    ctrl.isVisible = is_protected
+                    ctrl.isPromoted = is_protected
+                    ctrl.isPromotedByDefault = False
+                elif cmd_id in _VISIBLE_WHEN_UNPROTECTED:
+                    ctrl.isVisible = not is_protected
+                    ctrl.isPromoted = not is_protected
+                    ctrl.isPromotedByDefault = True
+                else:
+                    ctrl.isVisible = True
 
 
 def destroy_ui(app: adsk.core.Application):
@@ -76,7 +91,11 @@ def update_button_visibility(state: SessionState):
     try:
         app = adsk.core.Application.get()
         ui = app.userInterface
-        is_protected = state in (SessionState.PROTECTED, SessionState.ACTIVATING)
+        is_protected = state in (
+            SessionState.PROTECTED,
+            SessionState.ACTIVATING,
+            SessionState.DEACTIVATING,
+        )
 
         for ws_id in config.TARGET_WORKSPACES:
             ws = ui.workspaces.itemById(ws_id)
@@ -89,19 +108,23 @@ def update_button_visibility(state: SessionState):
             if panel is None:
                 continue
 
-            start_ctrl = panel.controls.itemById(config.CMD_START_SESSION)
-            stop_ctrl = panel.controls.itemById(config.CMD_STOP_SESSION)
-            export_ctrl = panel.controls.itemById(config.CMD_EXPORT_LOCAL)
-
-            if start_ctrl:
-                start_ctrl.isVisible = not is_protected
-            if stop_ctrl:
-                stop_ctrl.isVisible = is_protected
-            if export_ctrl:
-                export_ctrl.isVisible = is_protected
-
-            settings_ctrl = panel.controls.itemById(config.CMD_SETTINGS)
-            if settings_ctrl:
-                settings_ctrl.isVisible = True
+            for i in range(panel.controls.count):
+                ctrl = panel.controls.item(i)
+                cmd_id = ctrl.id
+                if cmd_id in _VISIBLE_WHEN_PROTECTED:
+                    ctrl.isVisible = is_protected
+                    ctrl.isPromoted = is_protected
+                elif cmd_id in _VISIBLE_WHEN_UNPROTECTED:
+                    ctrl.isVisible = not is_protected
+                    ctrl.isPromoted = not is_protected
+                else:
+                    ctrl.isVisible = True
     except Exception:
-        pass
+        try:
+            AuditLogger.instance().log(
+                "UI_ERROR",
+                f"Failed to update button visibility: {traceback.format_exc()}",
+                "WARNING",
+            )
+        except Exception:
+            pass
