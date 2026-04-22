@@ -5,17 +5,17 @@ Thanks for your interest in contributing to AirGap. This guide covers how to set
 ## Getting Started
 
 1. Fork the repository and clone your fork
-2. Create a branch from `develop` using the appropriate prefix:
+2. Create a branch from `main` using the appropriate prefix:
    ```
-   git checkout develop
-   git pull origin develop
+   git checkout main
+   git pull origin main
    git checkout -b feature/your-branch-name
    ```
 3. Copy the add-in into Fusion 360's add-ins directory for testing (see [README](../README.md#installation))
 
 ## Branch Naming
 
-All branches should be created from `develop` and use one of these prefixes:
+All branches should be created from `main` and use one of these prefixes:
 
 | Prefix | Use for | Example |
 |--------|---------|---------|
@@ -26,13 +26,11 @@ All branches should be created from `develop` and use one of these prefixes:
 
 ## Pull Request Guidelines
 
-- **Always target `develop`** — never open a PR directly to `main`
+- **All PRs target `main`**
 - Describe what your change does and why
 - Reference any related issues
 - Keep PRs focused on a single concern
 - Ensure all CI checks pass before requesting review
-
-The only exception is **hotfixes** for critical bugs in a stable release. Hotfix branches are created from `main`, and the PR targets `main`. After merging, the fix must also be merged or cherry-picked into `develop`.
 
 ## Development Environment
 
@@ -127,7 +125,7 @@ The PR Checks workflow validates that both files contain the same version on eve
 
 ## CI Checks
 
-Every pull request to `develop` or `main` runs these GitHub Actions:
+Every pull request to `main` runs these GitHub Actions:
 
 | Workflow | What it checks |
 |----------|---------------|

@@ -1,21 +1,19 @@
 # Release Strategy
 
-AirGap uses a two-channel release model with automated beta releases and manual stable releases.
+AirGap uses trunk-based development with a two-channel release model: automated beta pre-releases and manual stable releases.
 
-## Branch Structure
+## Branch Model
 
 ```
-main        ← stable releases (v1.0.0, v1.1.0, v2.0.0)
-develop     ← beta releases (v1.0.1-beta.1, v1.0.1-beta.2, ...)
-feature/*   ← branch from develop, PR back to develop
-bugfix/*    ← branch from develop, PR back to develop
-enhancement/*
-repo/*
+main (active development)
+  tags: v1.0.3, v1.0.4-beta.1, v1.0.4-beta.2, v1.1.0
 ```
 
-- `main` always reflects the latest stable release.
-- `develop` is the integration branch where all work lands before promotion to stable.
-- Both branches are protected. Direct pushes are not allowed; all changes go through pull requests.
+- `main` is the only long-lived branch. It contains active development.
+- Feature branches (`feature/*`, `bugfix/*`, `enhancement/*`, `repo/*`) are created from `main` and merged back via pull request.
+- Stable releases are published as normal version tags (e.g., `v1.1.0`).
+- Beta releases are published as pre-release tags with `-beta.N` suffixes (e.g., `v1.1.0-beta.1`).
+- Users running production or compliance-sensitive workflows should use stable releases only.
 
 ## Version Format
 
@@ -29,25 +27,25 @@ The version is stored in two files that must always match:
 - `AirGap/config.py` — `VERSION = "x.y.z"`
 - `AirGap/AirGap.manifest` — `"version": "x.y.z"`
 
+These files on `main` always reflect the **last stable release**. Beta versions exist only in git tags and release artifacts (the downloaded zip contains the correct beta version).
+
 ## Beta Releases (Automatic)
 
-Beta releases are created automatically when a pull request is merged into `develop`.
+A beta pre-release is created automatically every time a pull request is merged into `main`.
 
 **Workflow:** `auto-release-beta.yml`
 
-**What happens on merge to `develop`:**
+**What happens on merge:**
 
 1. CI checks run (lint, syntax, format)
-2. The current version is read from `config.py`
-3. The patch beta version is incremented:
-   - `1.0.0` → `1.0.1-beta.1`
-   - `1.0.1-beta.1` → `1.0.1-beta.2`
-   - `1.0.1-beta.2` → `1.0.1-beta.3`
-4. Both version files are updated and committed
-5. A git tag is created (e.g., `v1.0.1-beta.3`)
-6. A GitHub Pre-Release is published with:
+2. The next beta version is computed from existing git tags:
+   - If the stable version is `1.0.3`, the next beta is `1.0.4-beta.1`
+   - Subsequent merges produce `1.0.4-beta.2`, `1.0.4-beta.3`, etc.
+3. Version files are updated in the working directory (not committed)
+4. The add-in is packaged as a zip with the beta version baked in
+5. A git tag and GitHub Pre-Release are created with:
    - `AirGap-v{version}.zip` — the packaged add-in
-   - `SHA256SUMS` — checksum file for integrity verification
+   - `SHA256SUMS` — checksum for integrity verification
 
 No manual action is required. Every merged PR produces a new beta release.
 
@@ -59,28 +57,27 @@ Stable releases are created by manually running the **Release** workflow.
 
 **Steps to create a stable release:**
 
-1. Ensure `develop` contains all the changes you want to release
-2. Open a pull request from `develop` to `main` and merge it
-3. Go to **Actions → Release → Run workflow**
-4. Enter the desired version number (e.g., `1.1.0`, `2.0.0`)
+1. Go to **Actions → Release → Run workflow**
+2. Enter the desired version number (e.g., `1.1.0`, `2.0.0`)
    - Must be plain semver with no pre-release suffix
    - You control the version — use your judgment on major, minor, or patch
-5. The workflow:
+3. The workflow:
    - Updates both version files on `main`
    - Commits and pushes the version change
    - Creates a git tag (e.g., `v1.1.0`)
    - Packages the add-in and generates checksums
    - Publishes a GitHub Release (marked as Latest)
 
-## Hotfixes
+## Release Branches (Optional)
 
-For critical bugs in a stable release that cannot wait for the normal beta cycle:
+For significant releases that need a stabilization period, you can optionally create a temporary release branch:
 
-1. Branch from `main`: `git checkout -b bugfix/critical-fix main`
-2. Fix the issue
-3. Open a PR targeting `main`
-4. After merge, run the **Release** workflow with a patch bump (e.g., `1.0.1` → `1.0.2`)
-5. Cherry-pick or merge the fix into `develop` to keep branches in sync
+1. Branch from `main`: `git checkout -b release/1.2`
+2. Only bug fixes go into this branch
+3. When stable, merge to `main` and run the Release workflow
+4. Delete the release branch
+
+This is not required for most releases and should only be used when you need to freeze features while continuing development on `main`.
 
 ## Release Artifacts
 
@@ -111,5 +108,5 @@ When an update is found, the user can download and stage it. The update is appli
 | `syntax-check.yml` | Pull request | Python compilation check |
 | `pr-checks.yml` | Pull request | JSON validation, version consistency, no .pyc files |
 | `codeql.yml` | Pull request, push, weekly | Security analysis |
-| `auto-release-beta.yml` | PR merged to `develop` | Auto-bump beta version and publish pre-release |
+| `auto-release-beta.yml` | PR merged to `main` | Auto-compute beta version and publish pre-release |
 | `release.yml` | Manual (workflow_dispatch) | Bump to specified version and publish stable release |
