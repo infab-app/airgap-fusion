@@ -32,7 +32,7 @@ AUTO_START_READY_POLL = 2
 AUTO_START_POST_READY_DELAY = 3
 
 # Allowed export formats
-ALLOWED_EXPORT_FORMATS = ["f3d", "step", "stl", "iges", "sat"]
+ALLOWED_EXPORT_FORMATS = ["f3d", "f3z", "step", "stl", "iges", "sat"]
 
 # Platform-dependent paths
 if sys.platform == "win32":

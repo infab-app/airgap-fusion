@@ -158,7 +158,8 @@ Each entry contains:
 | DOC_OPENED | INFO | Document opened during session |
 | DOC_CREATED | INFO | New document created during session |
 | DOC_CLOSED | INFO | Document closed during session |
-| EXPORT_F3D | INFO | Fusion Archive exported |
+| EXPORT_F3D | INFO | Fusion Archive (.f3d) exported |
+| EXPORT_F3Z | INFO | Fusion Archive (.f3z) with external references exported |
 | EXPORT_STEP | INFO | STEP file exported |
 | EXPORT_STL | INFO | STL file exported |
 | EXPORT_IGES | INFO | IGES file exported |

@@ -20,12 +20,26 @@ class LocalExportManager:
             options = export_mgr.createFusionArchiveExportOptions(filepath, target)
             result = export_mgr.execute(options)
             if result:
-                AuditLogger.instance().log("EXPORT_F3D", f"Exported: {filepath}")
+                event_type = "EXPORT_F3Z" if filepath.endswith(".f3z") else "EXPORT_F3D"
+                AuditLogger.instance().log(event_type, f"Exported: {filepath}")
             return result
         except Exception:
             AuditLogger.instance().log(
-                "EXPORT_ERROR", f"F3D export failed: {traceback.format_exc()}", "ERROR"
+                "EXPORT_ERROR",
+                f"Fusion Archive export failed: {traceback.format_exc()}",
+                "ERROR",
             )
+            return False
+
+    @staticmethod
+    def has_external_references() -> bool:
+        try:
+            app = adsk.core.Application.get()
+            design = adsk.fusion.Design.cast(app.activeProduct)
+            if not design:
+                return False
+            return any(occ.isReferencedComponent for occ in design.rootComponent.allOccurrences)
+        except Exception:
             return False
 
     @staticmethod
