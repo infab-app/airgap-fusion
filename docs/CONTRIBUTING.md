@@ -5,11 +5,34 @@ Thanks for your interest in contributing to AirGap. This guide covers how to set
 ## Getting Started
 
 1. Fork the repository and clone your fork
-2. Create a feature branch from `main`:
+2. Create a branch from `develop` using the appropriate prefix:
    ```
-   git checkout -b feature/your-feature-name
+   git checkout develop
+   git pull origin develop
+   git checkout -b feature/your-branch-name
    ```
 3. Copy the add-in into Fusion 360's add-ins directory for testing (see [README](../README.md#installation))
+
+## Branch Naming
+
+All branches should be created from `develop` and use one of these prefixes:
+
+| Prefix | Use for | Example |
+|--------|---------|---------|
+| `feature/` | New functionality | `feature/export-pdf-format` |
+| `bugfix/` | Fixing a bug | `bugfix/offline-monitor-crash` |
+| `enhancement/` | Improving existing functionality | `enhancement/settings-dialog` |
+| `repo/` | CI, docs, tooling, repo maintenance | `repo/update-documentation` |
+
+## Pull Request Guidelines
+
+- **Always target `develop`** — never open a PR directly to `main`
+- Describe what your change does and why
+- Reference any related issues
+- Keep PRs focused on a single concern
+- Ensure all CI checks pass before requesting review
+
+The only exception is **hotfixes** for critical bugs in a stable release. Hotfix branches are created from `main`, and the PR targets `main`. After merging, the fix must also be merged or cherry-picked into `develop`.
 
 ## Development Environment
 
@@ -65,20 +88,34 @@ airgap-fusion/
 │   │   ├── audit_logger.py
 │   │   ├── ui_components.py
 │   │   ├── persistence.py
-│   │   └── settings.py
+│   │   ├── settings.py
+│   │   ├── github_client.py
+│   │   └── updater.py
 │   ├── commands/            # UI command handlers
 │   │   ├── start_session.py
 │   │   ├── stop_session.py
 │   │   ├── export_local.py
+│   │   ├── check_update.py
 │   │   ├── view_log.py
 │   │   └── settings.py
 │   └── resources/           # Toolbar icons
 ├── docs/                    # Documentation (not included in the add-in)
-├── .github/workflows/       # CI workflows
+├── .github/workflows/       # CI and release workflows
 └── ruff.toml                # Linter configuration
 ```
 
 Files outside of `AirGap/` (docs, CI config, linter config) are for development only and are not part of the add-in.
+
+## Versioning
+
+The version is tracked in two files that must always match:
+
+- `AirGap/config.py` — `VERSION = "x.y.z"`
+- `AirGap/AirGap.manifest` — `"version": "x.y.z"`
+
+**Do not manually edit version numbers.** Versioning is handled automatically by CI workflows. See [RELEASE_STRATEGY.md](RELEASE_STRATEGY.md) for details.
+
+The PR Checks workflow validates that both files contain the same version on every pull request.
 
 ## Code Style
 
@@ -90,7 +127,7 @@ Files outside of `AirGap/` (docs, CI config, linter config) are for development 
 
 ## CI Checks
 
-Every push and pull request runs these GitHub Actions:
+Every pull request to `develop` or `main` runs these GitHub Actions:
 
 | Workflow | What it checks |
 |----------|---------------|
@@ -106,18 +143,10 @@ All checks must pass before a PR can be merged.
 AirGap runs inside Fusion 360's runtime, so automated unit testing is limited. Please manually test your changes in Fusion 360 before submitting a PR:
 
 1. Load the modified add-in in Fusion 360
-2. Start and stop an ITAR session
+2. Start and stop an AirGap session
 3. Verify your change works as expected
 4. Check the audit log for any unexpected entries
 5. Confirm existing functionality is not broken
-
-## Submitting a Pull Request
-
-1. Ensure `ruff check .` and `ruff format --check .` both pass with no errors
-2. Test your changes in Fusion 360
-3. Push your branch and open a PR against `main`
-4. Describe what your change does and why
-5. Reference any related issues
 
 ## Reporting Issues
 
