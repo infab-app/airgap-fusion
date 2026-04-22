@@ -50,27 +50,35 @@ If you use VS Code, install the [Ruff extension](https://marketplace.visualstudi
 
 ## Project Structure
 
+The repository separates the add-in from development tooling. The `AirGap/` folder is the complete Fusion 360 add-in that users copy into their Add-Ins directory. All add-in code, resources, and configuration must live inside `AirGap/` so that users can install it by dragging a single folder.
+
 ```
-AirGap/
-├── AirGap.py              # Entry point (run/stop hooks for Fusion)
-├── config.py              # Constants, paths, command IDs
-├── lib/                   # Core modules
-│   ├── session_manager.py # Session state machine
-│   ├── offline_enforcer.py
-│   ├── save_interceptor.py
-│   ├── export_manager.py
-│   ├── audit_logger.py
-│   ├── ui_components.py
-│   ├── persistence.py
-│   └── settings.py
-├── commands/              # UI command handlers
-│   ├── start_session.py
-│   ├── stop_session.py
-│   ├── export_local.py
-│   ├── view_log.py
-│   └── settings.py
-└── resources/             # Toolbar icons
+airgap-fusion/
+├── AirGap/                  # Add-in folder (this is what users install)
+│   ├── AirGap.py            # Entry point (run/stop hooks for Fusion)
+│   ├── config.py            # Constants, paths, command IDs
+│   ├── lib/                 # Core modules
+│   │   ├── session_manager.py
+│   │   ├── offline_enforcer.py
+│   │   ├── save_interceptor.py
+│   │   ├── export_manager.py
+│   │   ├── audit_logger.py
+│   │   ├── ui_components.py
+│   │   ├── persistence.py
+│   │   └── settings.py
+│   ├── commands/            # UI command handlers
+│   │   ├── start_session.py
+│   │   ├── stop_session.py
+│   │   ├── export_local.py
+│   │   ├── view_log.py
+│   │   └── settings.py
+│   └── resources/           # Toolbar icons
+├── docs/                    # Documentation (not included in the add-in)
+├── .github/workflows/       # CI workflows
+└── ruff.toml                # Linter configuration
 ```
+
+Files outside of `AirGap/` (docs, CI config, linter config) are for development only and are not part of the add-in.
 
 ## Code Style
 
@@ -86,7 +94,7 @@ Every push and pull request runs these GitHub Actions:
 
 | Workflow | What it checks |
 |----------|---------------|
-| **Syntax Check** | All `.py` files compile on Python 3.10 and 3.12 |
+| **Syntax Check** | All `.py` files compile on Python 3.12 |
 | **Lint** | Ruff lint rules and formatting |
 | **CodeQL** | Security analysis for common vulnerability patterns |
 | **PR Checks** | JSON validity, version consistency, no `.pyc` files |
