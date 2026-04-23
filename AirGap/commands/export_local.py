@@ -45,7 +45,7 @@ class ExportLocalCommand(adsk.core.CommandCreatedEventHandler):
             )
             inputs.addBoolValueInput("exportSTEP", "STEP (.step)", True, "", False)
             inputs.addBoolValueInput("exportSTL", "STL (.stl)", True, "", False)
-            inputs.addBoolValueInput("exportIGES", "IGES (.iges)", True, "", False)
+            inputs.addBoolValueInput("exportIGES", "IGES (.igs)", True, "", False)
 
             if LocalExportManager.has_cam_product():
                 cam_info = inputs.addTextBoxCommandInput(
@@ -167,7 +167,7 @@ class ExportExecuteHandler(adsk.core.CommandEventHandler):
                 results.append(("STL", filepath, ok))
 
             if inputs.itemById("exportIGES").value:
-                filepath = str(export_dir / f"{safe_name}.iges")
+                filepath = str(export_dir / f"{safe_name}.igs")
                 ok = LocalExportManager.export_iges(filepath, target_component)
                 results.append(("IGES", filepath, ok))
 
@@ -179,6 +179,10 @@ class ExportExecuteHandler(adsk.core.CommandEventHandler):
             for fmt, path, ok in results:
                 status = "OK" if ok else "FAILED"
                 summary_lines.append(f"  [{status}] {fmt}: {path}")
+                if not ok:
+                    AuditLogger.instance().log(
+                        "EXPORT_ERROR", f"Export failed for {fmt}: {path}", "ERROR"
+                    )
             summary = "\n".join(summary_lines)
 
             icon = (
