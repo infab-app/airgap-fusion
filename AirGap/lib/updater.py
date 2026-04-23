@@ -29,6 +29,18 @@ class StagingResult:
     error: str | None
 
 
+def _parse_pre(pre: str) -> tuple:
+    if not pre:
+        return ()
+    result = []
+    for segment in pre.split("."):
+        try:
+            result.append((0, int(segment)))
+        except ValueError:
+            result.append((1, segment))
+    return tuple(result)
+
+
 def parse_version(version_str: str) -> tuple[tuple[int, ...], str]:
     v = version_str.lstrip("v")
     pre = ""
@@ -50,7 +62,7 @@ def is_newer(latest: str, current: str) -> bool:
         return True
     if lat_pre != "" and cur_pre == "":
         return False
-    return lat_pre > cur_pre
+    return _parse_pre(lat_pre) > _parse_pre(cur_pre)
 
 
 def check_for_update(channel: str = "stable") -> UpdateCheckResult:
@@ -117,6 +129,51 @@ def check_for_update(channel: str = "stable") -> UpdateCheckResult:
     )
 
 
+class _StagingError(Exception):
+    pass
+
+
+def _validate_and_extract(staging_dir: Path, zip_path: Path, result: UpdateCheckResult) -> Path:
+    checksums = github_client.download_checksums(f"v{result.latest_version}")
+    if not checksums:
+        raise _StagingError("Could not download checksums for verification. Update aborted.")
+
+    expected = checksums.get(result.asset_name)
+    if not expected:
+        raise _StagingError(f"No checksum found for {result.asset_name}. Update aborted.")
+
+    actual = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+    if actual != expected:
+        raise _StagingError("Checksum verification failed. Download may be corrupted.")
+
+    if not zipfile.is_zipfile(zip_path):
+        raise _StagingError("Downloaded file is not a valid zip archive.")
+
+    extract_dir = staging_dir / "extracted"
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(extract_dir)
+    except zipfile.BadZipFile as err:
+        raise _StagingError("Zip extraction failed.") from err
+
+    addin_dir = _find_addin_root(extract_dir)
+    if addin_dir is None:
+        raise _StagingError("Invalid archive structure: missing AirGap.py or AirGap.manifest.")
+
+    extracted_config = addin_dir / "config.py"
+    if extracted_config.exists():
+        text = extracted_config.read_text(encoding="utf-8")
+        match = re.search(r"VERSION\s*=\s*['\"]([^'\"]+)['\"]", text)
+        if match:
+            extracted_ver = match.group(1)
+            if extracted_ver != result.latest_version:
+                raise _StagingError(
+                    f"Version mismatch: expected {result.latest_version}, got {extracted_ver}."
+                )
+
+    return addin_dir
+
+
 def download_and_stage(result: UpdateCheckResult) -> StagingResult:
     staging_dir = config.UPDATE_STAGING_DIR
 
@@ -127,53 +184,14 @@ def download_and_stage(result: UpdateCheckResult) -> StagingResult:
     except OSError as e:
         return StagingResult(False, None, f"Could not create staging directory: {e}")
 
-    zip_path = staging_dir / result.asset_name
-    if not github_client.download_asset(result.download_url, zip_path):
-        return StagingResult(False, None, "Download failed. Please try again later.")
-
-    checksums = github_client.download_checksums(f"v{result.latest_version}")
-    if checksums:
-        expected = checksums.get(result.asset_name)
-        if expected:
-            actual = hashlib.sha256(zip_path.read_bytes()).hexdigest()
-            if actual != expected:
-                shutil.rmtree(staging_dir, ignore_errors=True)
-                return StagingResult(
-                    False, None, "Checksum verification failed. Download may be corrupted."
-                )
-
-    if not zipfile.is_zipfile(zip_path):
-        shutil.rmtree(staging_dir, ignore_errors=True)
-        return StagingResult(False, None, "Downloaded file is not a valid zip archive.")
-
-    extract_dir = staging_dir / "extracted"
     try:
-        with zipfile.ZipFile(zip_path) as zf:
-            zf.extractall(extract_dir)
-    except zipfile.BadZipFile:
+        zip_path = staging_dir / result.asset_name
+        if not github_client.download_asset(result.download_url, zip_path):
+            raise _StagingError("Download failed. Please try again later.")
+        addin_dir = _validate_and_extract(staging_dir, zip_path, result)
+    except _StagingError as e:
         shutil.rmtree(staging_dir, ignore_errors=True)
-        return StagingResult(False, None, "Zip extraction failed.")
-
-    addin_dir = _find_addin_root(extract_dir)
-    if addin_dir is None:
-        shutil.rmtree(staging_dir, ignore_errors=True)
-        return StagingResult(
-            False, None, "Invalid archive structure: missing AirGap.py or AirGap.manifest."
-        )
-
-    extracted_config = addin_dir / "config.py"
-    if extracted_config.exists():
-        text = extracted_config.read_text(encoding="utf-8")
-        match = re.search(r"VERSION\s*=\s*['\"]([^'\"]+)['\"]", text)
-        if match:
-            extracted_ver = match.group(1)
-            if extracted_ver != result.latest_version:
-                shutil.rmtree(staging_dir, ignore_errors=True)
-                return StagingResult(
-                    False,
-                    None,
-                    f"Version mismatch: expected {result.latest_version}, got {extracted_ver}.",
-                )
+        return StagingResult(False, None, str(e))
 
     pending = {
         "version": result.latest_version,
@@ -201,95 +219,3 @@ def _find_addin_root(extract_dir: Path) -> Path | None:
         ):
             return child
     return None
-
-
-def apply_pending_update(addin_path: str) -> bool:
-    """Replace add-in files from staged update. Must be called before lib imports."""
-    pending_file = _get_pending_file()
-    if pending_file is None or not pending_file.exists():
-        return False
-
-    try:
-        with open(pending_file, encoding="utf-8") as f:
-            pending = json.load(f)
-
-        staging_path = Path(pending["staging_path"])
-        if not staging_path.exists():
-            pending_file.unlink(missing_ok=True)
-            return False
-
-        addin_dir = Path(addin_path)
-        backup_dir = _get_backup_dir()
-
-        if backup_dir.exists():
-            shutil.rmtree(backup_dir)
-        backup_dir.mkdir(parents=True, exist_ok=True)
-
-        for item in addin_dir.iterdir():
-            if item.name.startswith("."):
-                continue
-            dest = backup_dir / item.name
-            if item.is_dir():
-                shutil.copytree(item, dest)
-            else:
-                shutil.copy2(item, dest)
-
-        try:
-            for item in staging_path.iterdir():
-                dest = addin_dir / item.name
-                if item.is_dir():
-                    if dest.exists():
-                        shutil.rmtree(dest)
-                    shutil.copytree(item, dest)
-                else:
-                    shutil.copy2(item, dest)
-        except Exception:
-            for item in backup_dir.iterdir():
-                dest = addin_dir / item.name
-                if item.is_dir():
-                    if dest.exists():
-                        shutil.rmtree(dest)
-                    shutil.copytree(item, dest)
-                else:
-                    shutil.copy2(item, dest)
-            pending_file.unlink(missing_ok=True)
-            return False
-
-        shutil.rmtree(backup_dir, ignore_errors=True)
-        staging_parent = staging_path.parent
-        if staging_parent.name == "extracted":
-            shutil.rmtree(staging_parent.parent, ignore_errors=True)
-        else:
-            shutil.rmtree(staging_parent, ignore_errors=True)
-        pending_file.unlink(missing_ok=True)
-
-        return True
-
-    except Exception:
-        try:
-            pending_file.unlink(missing_ok=True)
-        except Exception:
-            pass
-        return False
-
-
-def _get_pending_file() -> Path | None:
-    import os
-    import sys
-
-    if sys.platform == "win32":
-        base = Path(os.environ.get("APPDATA", Path.home())) / ".airgap"
-    else:
-        base = Path.home() / ".airgap"
-    return base / "update_pending.json"
-
-
-def _get_backup_dir() -> Path:
-    import os
-    import sys
-
-    if sys.platform == "win32":
-        base = Path(os.environ.get("APPDATA", Path.home())) / ".airgap"
-    else:
-        base = Path.home() / ".airgap"
-    return base / "update_backup"

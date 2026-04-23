@@ -1,3 +1,4 @@
+import datetime
 import traceback
 
 import adsk.core
@@ -9,6 +10,30 @@ from lib.session_manager import SessionManager, SessionState
 from lib.ui_components import update_button_visibility
 
 _handlers = []
+
+
+def _get_open_tracked_doc_names(app, session):
+    result = []
+    for doc_name in session.substantive_tracked_documents():
+        for i in range(app.documents.count):
+            doc = app.documents.item(i)
+            if doc.name == doc_name:
+                result.append(doc_name)
+                break
+    return result
+
+
+def _format_session_duration(start_iso):
+    if not start_iso:
+        return ""
+    try:
+        start = datetime.datetime.fromisoformat(start_iso)
+        delta = datetime.datetime.now() - start
+        hours, remainder = divmod(int(delta.total_seconds()), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f" Duration: {hours}h {minutes}m {seconds}s."
+    except (ValueError, TypeError):
+        return ""
 
 
 class StopSessionCommand(adsk.core.CommandCreatedEventHandler):
@@ -51,13 +76,7 @@ class StopSessionCommand(adsk.core.CommandCreatedEventHandler):
                 )
 
             app = adsk.core.Application.get()
-            open_doc_names = []
-            for doc_name in session.substantive_tracked_documents():
-                for i in range(app.documents.count):
-                    doc = app.documents.item(i)
-                    if doc.name == doc_name:
-                        open_doc_names.append(doc_name)
-                        break
+            open_doc_names = _get_open_tracked_doc_names(app, session)
 
             if open_doc_names:
                 inputs.addTextBoxCommandInput(
@@ -138,13 +157,7 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                     "WARNING",
                 )
 
-            open_doc_names = []
-            for doc_name in session.substantive_tracked_documents():
-                for i in range(app.documents.count):
-                    doc = app.documents.item(i)
-                    if doc.name == doc_name:
-                        open_doc_names.append(doc_name)
-                        break
+            open_doc_names = _get_open_tracked_doc_names(app, session)
             if open_doc_names:
                 logger.log(
                     "SESSION_END_WITH_OPEN_DOCS",
@@ -152,10 +165,15 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                     "WARNING",
                 )
 
+            duration_str = _format_session_duration(session.session_start_time)
+
             if substantive_unexported or open_doc_names:
-                logger.log("SESSION_END", "AirGap session ended with warnings (user acknowledged)")
+                logger.log(
+                    "SESSION_END",
+                    f"AirGap session ended with warnings (user acknowledged).{duration_str}",
+                )
             else:
-                logger.log("SESSION_END", "AirGap session ended cleanly")
+                logger.log("SESSION_END", f"AirGap session ended cleanly.{duration_str}")
 
             get_enforcer().deactivate()
             get_interceptor().deactivate()

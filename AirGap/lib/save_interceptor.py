@@ -11,19 +11,39 @@ class DocumentSavingHandler(adsk.core.DocumentEventHandler):
     def notify(self, args):
         try:
             event_args = adsk.core.DocumentEventArgs.cast(args)
+        except Exception:
+            try:
+                AuditLogger.instance().log(
+                    "SAVE_BLOCK_ERROR", "Could not cast save event args", "CRITICAL"
+                )
+            except Exception:
+                pass
+            return
+
+        if event_args is None:
+            try:
+                AuditLogger.instance().log(
+                    "SAVE_BLOCK_ERROR", "Save event args cast returned None", "CRITICAL"
+                )
+            except Exception:
+                pass
+            return
+
+        event_args.isSaveCanceled = True
+
+        try:
             session = SessionManager.instance()
             if not session.is_protected:
+                event_args.isSaveCanceled = False
                 return
 
-            event_args.isSaveCanceled = True
             doc_name = event_args.document.name if event_args.document else "Unknown"
             AuditLogger.instance().log(
                 "SAVE_BLOCKED", f"Cloud save blocked for: {doc_name}", "WARNING"
             )
 
             app = adsk.core.Application.get()
-            ui = app.userInterface
-            ui.messageBox(
+            app.userInterface.messageBox(
                 f"CLOUD SAVE BLOCKED\n\n"
                 f"Document: {doc_name}\n\n"
                 f"Cloud saves are blocked during AirGap sessions.\n"
@@ -34,7 +54,14 @@ class DocumentSavingHandler(adsk.core.DocumentEventHandler):
                 adsk.core.MessageBoxIconTypes.CriticalIconType,
             )
         except Exception:
-            pass
+            try:
+                AuditLogger.instance().log(
+                    "SAVE_BLOCK_ERROR",
+                    "Save blocked but handler error during notification",
+                    "ERROR",
+                )
+            except Exception:
+                pass
 
 
 class DocumentOpenedHandler(adsk.core.DocumentEventHandler):
@@ -97,39 +124,22 @@ class SaveInterceptor:
     def activate(self, app: adsk.core.Application):
         self._app = app
 
-        saving_handler = DocumentSavingHandler()
-        app.documentSaving.add(saving_handler)
-        self._handlers.append(saving_handler)
-
-        opened_handler = DocumentOpenedHandler()
-        app.documentOpened.add(opened_handler)
-        self._handlers.append(opened_handler)
-
-        created_handler = DocumentCreatedHandler()
-        app.documentCreated.add(created_handler)
-        self._handlers.append(created_handler)
-
-        closed_handler = DocumentClosedHandler()
-        app.documentClosed.add(closed_handler)
-        self._handlers.append(closed_handler)
+        for event, handler_cls in (
+            (app.documentSaving, DocumentSavingHandler),
+            (app.documentOpened, DocumentOpenedHandler),
+            (app.documentCreated, DocumentCreatedHandler),
+            (app.documentClosed, DocumentClosedHandler),
+        ):
+            handler = handler_cls()
+            event.add(handler)
+            self._handlers.append((event, handler))
 
     def deactivate(self):
         if not self._app:
             return
-        try:
-            self._app.documentSaving.remove(self._handlers[0])
-        except Exception:
-            pass
-        try:
-            self._app.documentOpened.remove(self._handlers[1])
-        except Exception:
-            pass
-        try:
-            self._app.documentCreated.remove(self._handlers[2])
-        except Exception:
-            pass
-        try:
-            self._app.documentClosed.remove(self._handlers[3])
-        except Exception:
-            pass
+        for event, handler in self._handlers:
+            try:
+                event.remove(handler)
+            except Exception:
+                pass
         self._handlers.clear()

@@ -48,7 +48,7 @@ class SessionPersistence:
 
     @staticmethod
     def restore_session(session: SessionManager, state_data: dict):
-        session._state = SessionState.PROTECTED
+        session._state = SessionState.RECOVERING
         session._session_id = state_data.get("session_id", "")
         session._tracked_documents = set(state_data.get("tracked_documents", []))
         session._exported_documents = set(state_data.get("exported_documents", []))

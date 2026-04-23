@@ -12,6 +12,21 @@ if _addin_path not in sys.path:
     sys.path.insert(0, _addin_path)
 
 
+def _copy_dir_contents(src, dest, *, overwrite=False, skip_dotfiles=False):
+    import shutil
+
+    for item in src.iterdir():
+        if skip_dotfiles and item.name.startswith("."):
+            continue
+        target = dest / item.name
+        if item.is_dir():
+            if overwrite and target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(item, target)
+        else:
+            shutil.copy2(item, target)
+
+
 def _apply_pending_update():
     import json
     import shutil
@@ -42,33 +57,12 @@ def _apply_pending_update():
             shutil.rmtree(backup_dir)
         backup_dir.mkdir(parents=True, exist_ok=True)
 
-        for item in addin_dir.iterdir():
-            if item.name.startswith("."):
-                continue
-            dest = backup_dir / item.name
-            if item.is_dir():
-                shutil.copytree(item, dest)
-            else:
-                shutil.copy2(item, dest)
+        _copy_dir_contents(addin_dir, backup_dir, skip_dotfiles=True)
 
         try:
-            for item in staging_path.iterdir():
-                dest = addin_dir / item.name
-                if item.is_dir():
-                    if dest.exists():
-                        shutil.rmtree(dest)
-                    shutil.copytree(item, dest)
-                else:
-                    shutil.copy2(item, dest)
+            _copy_dir_contents(staging_path, addin_dir, overwrite=True)
         except Exception:
-            for item in backup_dir.iterdir():
-                dest = addin_dir / item.name
-                if item.is_dir():
-                    if dest.exists():
-                        shutil.rmtree(dest)
-                    shutil.copytree(item, dest)
-                else:
-                    shutil.copy2(item, dest)
+            _copy_dir_contents(backup_dir, addin_dir, overwrite=True)
             pending_file.unlink(missing_ok=True)
             return False
 
@@ -134,7 +128,7 @@ def run(context):
         ui_components.create_ui(_app)
 
         if restored:
-            ui_components.update_button_visibility(SessionState.PROTECTED)
+            ui_components.update_button_visibility(SessionState.RECOVERING)
             _schedule_crash_recovery_completion(_app)
         else:
             _schedule_auto_start(_app)
@@ -149,7 +143,7 @@ def stop(context):
     global _auto_start_event, _crash_recovery_event, _update_check_event
     try:
         session = SessionManager.instance()
-        if session.is_protected:
+        if session.is_protected or session.state == SessionState.RECOVERING:
             SessionPersistence.save_state(session)
             AuditLogger.instance().log(
                 "ADDIN_STOPPING",
@@ -164,18 +158,15 @@ def stop(context):
         get_interceptor().deactivate()
 
         if _app:
-            try:
-                _app.unregisterCustomEvent(CUSTOM_EVENT_AUTO_START)
-            except Exception:
-                pass
-            try:
-                _app.unregisterCustomEvent(CUSTOM_EVENT_CRASH_RECOVERY)
-            except Exception:
-                pass
-            try:
-                _app.unregisterCustomEvent(CUSTOM_EVENT_UPDATE_CHECK)
-            except Exception:
-                pass
+            for event_id in (
+                CUSTOM_EVENT_AUTO_START,
+                CUSTOM_EVENT_CRASH_RECOVERY,
+                CUSTOM_EVENT_UPDATE_CHECK,
+            ):
+                try:
+                    _app.unregisterCustomEvent(event_id)
+                except Exception:
+                    pass
             ui_components.destroy_ui(_app)
 
         _auto_start_handlers.clear()
@@ -190,11 +181,28 @@ def stop(context):
             _ui.messageBox(f"AirGap error during shutdown:\n{traceback.format_exc()}")
 
 
+def _is_pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
 def _handle_crash_recovery(app: adsk.core.Application, ui: adsk.core.UserInterface) -> bool:
     saved_state = SessionPersistence.load_state()
     if not saved_state:
         return False
-    if saved_state.get("state") not in ("PROTECTED", "ACTIVATING"):
+    if saved_state.get("state") not in (
+        SessionState.PROTECTED.value,
+        SessionState.ACTIVATING.value,
+        SessionState.RECOVERING.value,
+    ):
+        SessionPersistence.clear_state()
+        return False
+
+    saved_pid = saved_state.get("pid")
+    if saved_pid is not None and _is_pid_alive(saved_pid):
         SessionPersistence.clear_state()
         return False
 
@@ -271,25 +279,30 @@ def _schedule_auto_start(app: adsk.core.Application):
     thread.start()
 
 
-def _fire_event_after_ready(app: adsk.core.Application, event_id: str):
+def _wait_until_ready(app: adsk.core.Application) -> bool:
     import time
 
     import config as cfg
 
     deadline = time.monotonic() + cfg.AUTO_START_READY_TIMEOUT
-    ready = False
-
     while time.monotonic() < deadline:
         try:
             if hasattr(app, "isStartupComplete") and app.isStartupComplete:
-                ready = True
-                break
+                return True
             if app.activeViewport is not None:
-                ready = True
-                break
+                return True
         except Exception:
             pass
         time.sleep(cfg.AUTO_START_READY_POLL)
+    return False
+
+
+def _fire_event_after_ready(app: adsk.core.Application, event_id: str):
+    import time
+
+    import config as cfg
+
+    ready = _wait_until_ready(app)
 
     if not ready:
         try:
@@ -335,7 +348,7 @@ class _CrashRecoveryCompleteHandler(adsk.core.CustomEventHandler):
             session = SessionManager.instance()
             logger = AuditLogger.instance()
 
-            if not session.is_protected:
+            if session.state != SessionState.RECOVERING:
                 return
 
             enforcer = get_enforcer()
@@ -348,6 +361,7 @@ class _CrashRecoveryCompleteHandler(adsk.core.CustomEventHandler):
                     "Crash recovery failed: could not enable offline mode",
                     "CRITICAL",
                 )
+                session.transition_to(SessionState.UNPROTECTED)
                 session.reset()
                 SessionPersistence.clear_state()
                 logger.end_session_log()
@@ -364,6 +378,8 @@ class _CrashRecoveryCompleteHandler(adsk.core.CustomEventHandler):
                 return
 
             get_interceptor().activate(app)
+            session.transition_to(SessionState.PROTECTED)
+            ui_components.update_button_visibility(SessionState.PROTECTED)
             SessionPersistence.save_state(session)
             logger.log("CRASH_RECOVERY", "Offline enforcement activated after Fusion startup")
         except Exception:
@@ -375,6 +391,41 @@ class _CrashRecoveryCompleteHandler(adsk.core.CustomEventHandler):
                 )
             except Exception:
                 pass
+
+
+def _activate_session(app, session, session_id, export_dir, start_time):
+    """Activate an AirGap session. Returns (True, None) on success or (False, error_msg)."""
+    if not session.transition_to(SessionState.ACTIVATING):
+        return False, "AirGap auto-start failed: invalid session state."
+
+    logger = AuditLogger.instance()
+    session.start_session(session_id, export_dir, start_time)
+    logger.start_session_log(session_id)
+    logger.log("SESSION_AUTO_START", f"AirGap session auto-started. Export dir: {export_dir}")
+
+    enforcer = get_enforcer()
+    if not enforcer.activate(app, retries=5):
+        logger.log("SESSION_ABORT", "Auto-start failed: could not enable offline mode", "CRITICAL")
+        session.transition_to(SessionState.UNPROTECTED)
+        session.reset()
+        logger.end_session_log()
+        return False, (
+            "AirGap auto-start failed: could not enable offline mode.\n\n"
+            "Please start the AirGap session manually."
+        )
+
+    get_interceptor().activate(app)
+
+    if not session.transition_to(SessionState.PROTECTED):
+        enforcer.deactivate()
+        get_interceptor().deactivate()
+        session.reset()
+        logger.end_session_log()
+        return False, None
+
+    SessionPersistence.save_state(session)
+    ui_components.update_button_visibility(SessionState.PROTECTED)
+    return True, None
 
 
 class _AutoStartHandler(adsk.core.CustomEventHandler):
@@ -410,45 +461,16 @@ class _AutoStartHandler(adsk.core.CustomEventHandler):
 
             Path(export_dir).mkdir(parents=True, exist_ok=True)
 
-            if not session.transition_to(SessionState.ACTIVATING):
-                ui.messageBox("AirGap auto-start failed: invalid session state.", "AirGap - Error")
+            success, error_msg = _activate_session(app, session, session_id, export_dir, start_time)
+            if not success:
+                if error_msg:
+                    ui.messageBox(
+                        error_msg,
+                        "AirGap - Error",
+                        adsk.core.MessageBoxButtonTypes.OKButtonType,
+                        adsk.core.MessageBoxIconTypes.CriticalIconType,
+                    )
                 return
-
-            logger = AuditLogger.instance()
-            session.start_session(session_id, export_dir, start_time)
-            logger.start_session_log(session_id)
-            logger.log(
-                "SESSION_AUTO_START", f"AirGap session auto-started. Export dir: {export_dir}"
-            )
-
-            enforcer = get_enforcer()
-            if not enforcer.activate(app, retries=5):
-                logger.log(
-                    "SESSION_ABORT", "Auto-start failed: could not enable offline mode", "CRITICAL"
-                )
-                session.transition_to(SessionState.UNPROTECTED)
-                session.reset()
-                logger.end_session_log()
-                ui.messageBox(
-                    "AirGap auto-start failed: could not enable offline mode.\n\n"
-                    "Please start the AirGap session manually.",
-                    "AirGap - Error",
-                    adsk.core.MessageBoxButtonTypes.OKButtonType,
-                    adsk.core.MessageBoxIconTypes.CriticalIconType,
-                )
-                return
-
-            get_interceptor().activate(app)
-
-            if not session.transition_to(SessionState.PROTECTED):
-                enforcer.deactivate()
-                get_interceptor().deactivate()
-                session.reset()
-                logger.end_session_log()
-                return
-
-            SessionPersistence.save_state(session)
-            ui_components.update_button_visibility(SessionState.PROTECTED)
 
             ui.messageBox(
                 "AIRGAP SESSION AUTO-STARTED\n\n"
@@ -500,17 +522,7 @@ def _check_update_after_ready(app: adsk.core.Application, channel: str):
 
     import config as cfg
 
-    deadline = time.monotonic() + cfg.AUTO_START_READY_TIMEOUT
-    while time.monotonic() < deadline:
-        try:
-            if hasattr(app, "isStartupComplete") and app.isStartupComplete:
-                break
-            if app.activeViewport is not None:
-                break
-        except Exception:
-            pass
-        time.sleep(cfg.AUTO_START_READY_POLL)
-
+    _wait_until_ready(app)
     time.sleep(cfg.AUTO_START_POST_READY_DELAY)
 
     try:
