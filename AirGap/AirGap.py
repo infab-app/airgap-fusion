@@ -158,7 +158,11 @@ def stop(context):
         get_interceptor().deactivate()
 
         if _app:
-            for event_id in (CUSTOM_EVENT_AUTO_START, CUSTOM_EVENT_CRASH_RECOVERY, CUSTOM_EVENT_UPDATE_CHECK):
+            for event_id in (
+                CUSTOM_EVENT_AUTO_START,
+                CUSTOM_EVENT_CRASH_RECOVERY,
+                CUSTOM_EVENT_UPDATE_CHECK,
+            ):
                 try:
                     _app.unregisterCustomEvent(event_id)
                 except Exception:

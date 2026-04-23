@@ -153,14 +153,12 @@ def _validate_and_extract(staging_dir: Path, zip_path: Path, result: UpdateCheck
     try:
         with zipfile.ZipFile(zip_path) as zf:
             zf.extractall(extract_dir)
-    except zipfile.BadZipFile:
-        raise _StagingError("Zip extraction failed.")
+    except zipfile.BadZipFile as err:
+        raise _StagingError("Zip extraction failed.") from err
 
     addin_dir = _find_addin_root(extract_dir)
     if addin_dir is None:
-        raise _StagingError(
-            "Invalid archive structure: missing AirGap.py or AirGap.manifest."
-        )
+        raise _StagingError("Invalid archive structure: missing AirGap.py or AirGap.manifest.")
 
     extracted_config = addin_dir / "config.py"
     if extracted_config.exists():
