@@ -32,7 +32,9 @@ class LocalExportManager:
             design = LocalExportManager._get_design()
             if not design:
                 AuditLogger.instance().log(
-                    "EXPORT_ERROR", "Fusion Archive export failed: no Design product available", "ERROR"
+                    "EXPORT_ERROR",
+                    "Fusion Archive export failed: no Design product available",
+                    "ERROR",
                 )
                 return False
             export_mgr = design.exportManager
