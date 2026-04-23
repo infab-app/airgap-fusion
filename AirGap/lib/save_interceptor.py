@@ -124,39 +124,22 @@ class SaveInterceptor:
     def activate(self, app: adsk.core.Application):
         self._app = app
 
-        saving_handler = DocumentSavingHandler()
-        app.documentSaving.add(saving_handler)
-        self._handlers.append(saving_handler)
-
-        opened_handler = DocumentOpenedHandler()
-        app.documentOpened.add(opened_handler)
-        self._handlers.append(opened_handler)
-
-        created_handler = DocumentCreatedHandler()
-        app.documentCreated.add(created_handler)
-        self._handlers.append(created_handler)
-
-        closed_handler = DocumentClosedHandler()
-        app.documentClosed.add(closed_handler)
-        self._handlers.append(closed_handler)
+        for event, handler_cls in (
+            (app.documentSaving, DocumentSavingHandler),
+            (app.documentOpened, DocumentOpenedHandler),
+            (app.documentCreated, DocumentCreatedHandler),
+            (app.documentClosed, DocumentClosedHandler),
+        ):
+            handler = handler_cls()
+            event.add(handler)
+            self._handlers.append((event, handler))
 
     def deactivate(self):
         if not self._app:
             return
-        try:
-            self._app.documentSaving.remove(self._handlers[0])
-        except Exception:
-            pass
-        try:
-            self._app.documentOpened.remove(self._handlers[1])
-        except Exception:
-            pass
-        try:
-            self._app.documentCreated.remove(self._handlers[2])
-        except Exception:
-            pass
-        try:
-            self._app.documentClosed.remove(self._handlers[3])
-        except Exception:
-            pass
+        for event, handler in self._handlers:
+            try:
+                event.remove(handler)
+            except Exception:
+                pass
         self._handlers.clear()

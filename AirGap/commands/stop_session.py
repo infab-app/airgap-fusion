@@ -12,6 +12,30 @@ from lib.ui_components import update_button_visibility
 _handlers = []
 
 
+def _get_open_tracked_doc_names(app, session):
+    result = []
+    for doc_name in session.substantive_tracked_documents():
+        for i in range(app.documents.count):
+            doc = app.documents.item(i)
+            if doc.name == doc_name:
+                result.append(doc_name)
+                break
+    return result
+
+
+def _format_session_duration(start_iso):
+    if not start_iso:
+        return ""
+    try:
+        start = datetime.datetime.fromisoformat(start_iso)
+        delta = datetime.datetime.now() - start
+        hours, remainder = divmod(int(delta.total_seconds()), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f" Duration: {hours}h {minutes}m {seconds}s."
+    except (ValueError, TypeError):
+        return ""
+
+
 class StopSessionCommand(adsk.core.CommandCreatedEventHandler):
     def __init__(self):
         super().__init__()
@@ -52,13 +76,7 @@ class StopSessionCommand(adsk.core.CommandCreatedEventHandler):
                 )
 
             app = adsk.core.Application.get()
-            open_doc_names = []
-            for doc_name in session.substantive_tracked_documents():
-                for i in range(app.documents.count):
-                    doc = app.documents.item(i)
-                    if doc.name == doc_name:
-                        open_doc_names.append(doc_name)
-                        break
+            open_doc_names = _get_open_tracked_doc_names(app, session)
 
             if open_doc_names:
                 inputs.addTextBoxCommandInput(
@@ -139,13 +157,7 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                     "WARNING",
                 )
 
-            open_doc_names = []
-            for doc_name in session.substantive_tracked_documents():
-                for i in range(app.documents.count):
-                    doc = app.documents.item(i)
-                    if doc.name == doc_name:
-                        open_doc_names.append(doc_name)
-                        break
+            open_doc_names = _get_open_tracked_doc_names(app, session)
             if open_doc_names:
                 logger.log(
                     "SESSION_END_WITH_OPEN_DOCS",
@@ -153,16 +165,7 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                     "WARNING",
                 )
 
-            duration_str = ""
-            if session.session_start_time:
-                try:
-                    start = datetime.datetime.fromisoformat(session.session_start_time)
-                    delta = datetime.datetime.now() - start
-                    hours, remainder = divmod(int(delta.total_seconds()), 3600)
-                    minutes, seconds = divmod(remainder, 60)
-                    duration_str = f" Duration: {hours}h {minutes}m {seconds}s."
-                except (ValueError, TypeError):
-                    pass
+            duration_str = _format_session_duration(session.session_start_time)
 
             if substantive_unexported or open_doc_names:
                 logger.log(

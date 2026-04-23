@@ -14,6 +14,21 @@ _panels_created = []
 _tabs_created = []
 
 
+def _apply_control_visibility(ctrl, cmd_id, is_protected, set_promoted_default=False):
+    if cmd_id in _VISIBLE_WHEN_PROTECTED:
+        ctrl.isVisible = is_protected
+        ctrl.isPromoted = is_protected
+        if set_promoted_default:
+            ctrl.isPromotedByDefault = False
+    elif cmd_id in _VISIBLE_WHEN_UNPROTECTED:
+        ctrl.isVisible = not is_protected
+        ctrl.isPromoted = not is_protected
+        if set_promoted_default:
+            ctrl.isPromotedByDefault = True
+    else:
+        ctrl.isVisible = True
+
+
 def create_ui(app: adsk.core.Application):
     ui = app.userInterface
 
@@ -54,16 +69,7 @@ def create_ui(app: adsk.core.Application):
                     ctrl = panel.controls.addCommand(cmd_def)
 
             if ctrl:
-                if cmd_id in _VISIBLE_WHEN_PROTECTED:
-                    ctrl.isVisible = is_protected
-                    ctrl.isPromoted = is_protected
-                    ctrl.isPromotedByDefault = False
-                elif cmd_id in _VISIBLE_WHEN_UNPROTECTED:
-                    ctrl.isVisible = not is_protected
-                    ctrl.isPromoted = not is_protected
-                    ctrl.isPromotedByDefault = True
-                else:
-                    ctrl.isVisible = True
+                _apply_control_visibility(ctrl, cmd_id, is_protected, set_promoted_default=True)
 
 
 def destroy_ui(app: adsk.core.Application):
@@ -112,15 +118,7 @@ def update_button_visibility(state: SessionState):
 
             for i in range(panel.controls.count):
                 ctrl = panel.controls.item(i)
-                cmd_id = ctrl.id
-                if cmd_id in _VISIBLE_WHEN_PROTECTED:
-                    ctrl.isVisible = is_protected
-                    ctrl.isPromoted = is_protected
-                elif cmd_id in _VISIBLE_WHEN_UNPROTECTED:
-                    ctrl.isVisible = not is_protected
-                    ctrl.isPromoted = not is_protected
-                else:
-                    ctrl.isVisible = True
+                _apply_control_visibility(ctrl, ctrl.id, is_protected)
     except Exception:
         try:
             AuditLogger.instance().log(

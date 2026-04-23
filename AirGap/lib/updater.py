@@ -129,6 +129,53 @@ def check_for_update(channel: str = "stable") -> UpdateCheckResult:
     )
 
 
+class _StagingError(Exception):
+    pass
+
+
+def _validate_and_extract(staging_dir: Path, zip_path: Path, result: UpdateCheckResult) -> Path:
+    checksums = github_client.download_checksums(f"v{result.latest_version}")
+    if not checksums:
+        raise _StagingError("Could not download checksums for verification. Update aborted.")
+
+    expected = checksums.get(result.asset_name)
+    if not expected:
+        raise _StagingError(f"No checksum found for {result.asset_name}. Update aborted.")
+
+    actual = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+    if actual != expected:
+        raise _StagingError("Checksum verification failed. Download may be corrupted.")
+
+    if not zipfile.is_zipfile(zip_path):
+        raise _StagingError("Downloaded file is not a valid zip archive.")
+
+    extract_dir = staging_dir / "extracted"
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(extract_dir)
+    except zipfile.BadZipFile:
+        raise _StagingError("Zip extraction failed.")
+
+    addin_dir = _find_addin_root(extract_dir)
+    if addin_dir is None:
+        raise _StagingError(
+            "Invalid archive structure: missing AirGap.py or AirGap.manifest."
+        )
+
+    extracted_config = addin_dir / "config.py"
+    if extracted_config.exists():
+        text = extracted_config.read_text(encoding="utf-8")
+        match = re.search(r"VERSION\s*=\s*['\"]([^'\"]+)['\"]", text)
+        if match:
+            extracted_ver = match.group(1)
+            if extracted_ver != result.latest_version:
+                raise _StagingError(
+                    f"Version mismatch: expected {result.latest_version}, got {extracted_ver}."
+                )
+
+    return addin_dir
+
+
 def download_and_stage(result: UpdateCheckResult) -> StagingResult:
     staging_dir = config.UPDATE_STAGING_DIR
 
@@ -139,63 +186,14 @@ def download_and_stage(result: UpdateCheckResult) -> StagingResult:
     except OSError as e:
         return StagingResult(False, None, f"Could not create staging directory: {e}")
 
-    zip_path = staging_dir / result.asset_name
-    if not github_client.download_asset(result.download_url, zip_path):
-        return StagingResult(False, None, "Download failed. Please try again later.")
-
-    checksums = github_client.download_checksums(f"v{result.latest_version}")
-    if not checksums:
-        shutil.rmtree(staging_dir, ignore_errors=True)
-        return StagingResult(
-            False, None, "Could not download checksums for verification. Update aborted."
-        )
-
-    expected = checksums.get(result.asset_name)
-    if not expected:
-        shutil.rmtree(staging_dir, ignore_errors=True)
-        return StagingResult(
-            False, None, f"No checksum found for {result.asset_name}. Update aborted."
-        )
-
-    actual = hashlib.sha256(zip_path.read_bytes()).hexdigest()
-    if actual != expected:
-        shutil.rmtree(staging_dir, ignore_errors=True)
-        return StagingResult(
-            False, None, "Checksum verification failed. Download may be corrupted."
-        )
-
-    if not zipfile.is_zipfile(zip_path):
-        shutil.rmtree(staging_dir, ignore_errors=True)
-        return StagingResult(False, None, "Downloaded file is not a valid zip archive.")
-
-    extract_dir = staging_dir / "extracted"
     try:
-        with zipfile.ZipFile(zip_path) as zf:
-            zf.extractall(extract_dir)
-    except zipfile.BadZipFile:
+        zip_path = staging_dir / result.asset_name
+        if not github_client.download_asset(result.download_url, zip_path):
+            raise _StagingError("Download failed. Please try again later.")
+        addin_dir = _validate_and_extract(staging_dir, zip_path, result)
+    except _StagingError as e:
         shutil.rmtree(staging_dir, ignore_errors=True)
-        return StagingResult(False, None, "Zip extraction failed.")
-
-    addin_dir = _find_addin_root(extract_dir)
-    if addin_dir is None:
-        shutil.rmtree(staging_dir, ignore_errors=True)
-        return StagingResult(
-            False, None, "Invalid archive structure: missing AirGap.py or AirGap.manifest."
-        )
-
-    extracted_config = addin_dir / "config.py"
-    if extracted_config.exists():
-        text = extracted_config.read_text(encoding="utf-8")
-        match = re.search(r"VERSION\s*=\s*['\"]([^'\"]+)['\"]", text)
-        if match:
-            extracted_ver = match.group(1)
-            if extracted_ver != result.latest_version:
-                shutil.rmtree(staging_dir, ignore_errors=True)
-                return StagingResult(
-                    False,
-                    None,
-                    f"Version mismatch: expected {result.latest_version}, got {extracted_ver}.",
-                )
+        return StagingResult(False, None, str(e))
 
     pending = {
         "version": result.latest_version,

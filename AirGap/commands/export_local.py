@@ -10,6 +10,14 @@ from lib.session_manager import SessionManager
 
 _handlers = []
 
+_EXPORT_FORMATS = [
+    ("exportF3D", None, None, LocalExportManager.export_fusion_archive),
+    ("exportSTEP", ".step", "STEP", LocalExportManager.export_step),
+    ("exportSTL", ".stl", "STL", LocalExportManager.export_stl),
+    ("exportIGES", ".igs", "IGES", LocalExportManager.export_iges),
+]
+_FORMAT_INPUT_IDS = tuple(fmt[0] for fmt in _EXPORT_FORMATS)
+
 
 class ExportLocalCommand(adsk.core.CommandCreatedEventHandler):
     def __init__(self):
@@ -109,7 +117,7 @@ class ExportValidateHandler(adsk.core.ValidateInputsEventHandler):
             dir_input = inputs.itemById("exportDir")
 
             has_format = False
-            for fmt_id in ["exportF3D", "exportSTEP", "exportSTL", "exportIGES"]:
+            for fmt_id in _FORMAT_INPUT_IDS:
                 inp = inputs.itemById(fmt_id)
                 if inp and inp.value:
                     has_format = True
@@ -155,28 +163,16 @@ class ExportExecuteHandler(adsk.core.CommandEventHandler):
 
             results = []
 
-            if inputs.itemById("exportF3D").value:
-                has_xrefs = LocalExportManager.has_external_references()
-                archive_ext = "f3z" if has_xrefs else "f3d"
-                filepath = str(export_dir / f"{safe_name}.{archive_ext}")
-                ok = LocalExportManager.export_fusion_archive(filepath, target_component)
-                fmt_label = "F3Z" if has_xrefs else "F3D"
-                results.append((fmt_label, filepath, ok))
-
-            if inputs.itemById("exportSTEP").value:
-                filepath = str(export_dir / f"{safe_name}.step")
-                ok = LocalExportManager.export_step(filepath, target_component)
-                results.append(("STEP", filepath, ok))
-
-            if inputs.itemById("exportSTL").value:
-                filepath = str(export_dir / f"{safe_name}.stl")
-                ok = LocalExportManager.export_stl(filepath, target_component)
-                results.append(("STL", filepath, ok))
-
-            if inputs.itemById("exportIGES").value:
-                filepath = str(export_dir / f"{safe_name}.igs")
-                ok = LocalExportManager.export_iges(filepath, target_component)
-                results.append(("IGES", filepath, ok))
+            for input_id, ext, label, export_fn in _EXPORT_FORMATS:
+                if not inputs.itemById(input_id).value:
+                    continue
+                if input_id == "exportF3D":
+                    has_xrefs = LocalExportManager.has_external_references()
+                    ext = ".f3z" if has_xrefs else ".f3d"
+                    label = "F3Z" if has_xrefs else "F3D"
+                filepath = str(export_dir / f"{safe_name}{ext}")
+                ok = export_fn(filepath, target_component)
+                results.append((label, filepath, ok))
 
             all_ok = all(r[2] for r in results)
             if all_ok and doc_name != "export":
