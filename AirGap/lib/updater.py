@@ -29,6 +29,18 @@ class StagingResult:
     error: str | None
 
 
+def _parse_pre(pre: str) -> tuple:
+    if not pre:
+        return ()
+    result = []
+    for segment in pre.split("."):
+        try:
+            result.append((0, int(segment)))
+        except ValueError:
+            result.append((1, segment))
+    return tuple(result)
+
+
 def parse_version(version_str: str) -> tuple[tuple[int, ...], str]:
     v = version_str.lstrip("v")
     pre = ""
@@ -50,7 +62,7 @@ def is_newer(latest: str, current: str) -> bool:
         return True
     if lat_pre != "" and cur_pre == "":
         return False
-    return lat_pre > cur_pre
+    return _parse_pre(lat_pre) > _parse_pre(cur_pre)
 
 
 def check_for_update(channel: str = "stable") -> UpdateCheckResult:
@@ -132,15 +144,25 @@ def download_and_stage(result: UpdateCheckResult) -> StagingResult:
         return StagingResult(False, None, "Download failed. Please try again later.")
 
     checksums = github_client.download_checksums(f"v{result.latest_version}")
-    if checksums:
-        expected = checksums.get(result.asset_name)
-        if expected:
-            actual = hashlib.sha256(zip_path.read_bytes()).hexdigest()
-            if actual != expected:
-                shutil.rmtree(staging_dir, ignore_errors=True)
-                return StagingResult(
-                    False, None, "Checksum verification failed. Download may be corrupted."
-                )
+    if not checksums:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        return StagingResult(
+            False, None, "Could not download checksums for verification. Update aborted."
+        )
+
+    expected = checksums.get(result.asset_name)
+    if not expected:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        return StagingResult(
+            False, None, f"No checksum found for {result.asset_name}. Update aborted."
+        )
+
+    actual = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+    if actual != expected:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        return StagingResult(
+            False, None, "Checksum verification failed. Download may be corrupted."
+        )
 
     if not zipfile.is_zipfile(zip_path):
         shutil.rmtree(staging_dir, ignore_errors=True)
@@ -201,95 +223,3 @@ def _find_addin_root(extract_dir: Path) -> Path | None:
         ):
             return child
     return None
-
-
-def apply_pending_update(addin_path: str) -> bool:
-    """Replace add-in files from staged update. Must be called before lib imports."""
-    pending_file = _get_pending_file()
-    if pending_file is None or not pending_file.exists():
-        return False
-
-    try:
-        with open(pending_file, encoding="utf-8") as f:
-            pending = json.load(f)
-
-        staging_path = Path(pending["staging_path"])
-        if not staging_path.exists():
-            pending_file.unlink(missing_ok=True)
-            return False
-
-        addin_dir = Path(addin_path)
-        backup_dir = _get_backup_dir()
-
-        if backup_dir.exists():
-            shutil.rmtree(backup_dir)
-        backup_dir.mkdir(parents=True, exist_ok=True)
-
-        for item in addin_dir.iterdir():
-            if item.name.startswith("."):
-                continue
-            dest = backup_dir / item.name
-            if item.is_dir():
-                shutil.copytree(item, dest)
-            else:
-                shutil.copy2(item, dest)
-
-        try:
-            for item in staging_path.iterdir():
-                dest = addin_dir / item.name
-                if item.is_dir():
-                    if dest.exists():
-                        shutil.rmtree(dest)
-                    shutil.copytree(item, dest)
-                else:
-                    shutil.copy2(item, dest)
-        except Exception:
-            for item in backup_dir.iterdir():
-                dest = addin_dir / item.name
-                if item.is_dir():
-                    if dest.exists():
-                        shutil.rmtree(dest)
-                    shutil.copytree(item, dest)
-                else:
-                    shutil.copy2(item, dest)
-            pending_file.unlink(missing_ok=True)
-            return False
-
-        shutil.rmtree(backup_dir, ignore_errors=True)
-        staging_parent = staging_path.parent
-        if staging_parent.name == "extracted":
-            shutil.rmtree(staging_parent.parent, ignore_errors=True)
-        else:
-            shutil.rmtree(staging_parent, ignore_errors=True)
-        pending_file.unlink(missing_ok=True)
-
-        return True
-
-    except Exception:
-        try:
-            pending_file.unlink(missing_ok=True)
-        except Exception:
-            pass
-        return False
-
-
-def _get_pending_file() -> Path | None:
-    import os
-    import sys
-
-    if sys.platform == "win32":
-        base = Path(os.environ.get("APPDATA", Path.home())) / ".airgap"
-    else:
-        base = Path.home() / ".airgap"
-    return base / "update_pending.json"
-
-
-def _get_backup_dir() -> Path:
-    import os
-    import sys
-
-    if sys.platform == "win32":
-        base = Path(os.environ.get("APPDATA", Path.home())) / ".airgap"
-    else:
-        base = Path.home() / ".airgap"
-    return base / "update_backup"

@@ -139,12 +139,19 @@ class ExportExecuteHandler(adsk.core.CommandEventHandler):
 
             components = LocalExportManager.get_components()
             comp_dropdown = inputs.itemById("component")
-            selected_idx = 0
+            selected_name = ""
             for i in range(comp_dropdown.listItems.count):
                 if comp_dropdown.listItems.item(i).isSelected:
-                    selected_idx = i
+                    selected_name = comp_dropdown.listItems.item(i).name
                     break
-            target_component = components[selected_idx][1] if components else None
+
+            target_component = None
+            for name, comp in components:
+                if name == selected_name:
+                    target_component = comp
+                    break
+            if target_component is None and components:
+                target_component = components[0][1]
 
             results = []
 

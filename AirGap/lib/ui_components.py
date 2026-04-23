@@ -96,6 +96,7 @@ def update_button_visibility(state: SessionState):
             SessionState.PROTECTED,
             SessionState.ACTIVATING,
             SessionState.DEACTIVATING,
+            SessionState.RECOVERING,
         )
 
         for ws_id in config.TARGET_WORKSPACES:

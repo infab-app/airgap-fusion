@@ -134,7 +134,7 @@ def run(context):
         ui_components.create_ui(_app)
 
         if restored:
-            ui_components.update_button_visibility(SessionState.PROTECTED)
+            ui_components.update_button_visibility(SessionState.RECOVERING)
             _schedule_crash_recovery_completion(_app)
         else:
             _schedule_auto_start(_app)
@@ -149,7 +149,7 @@ def stop(context):
     global _auto_start_event, _crash_recovery_event, _update_check_event
     try:
         session = SessionManager.instance()
-        if session.is_protected:
+        if session.is_protected or session.state == SessionState.RECOVERING:
             SessionPersistence.save_state(session)
             AuditLogger.instance().log(
                 "ADDIN_STOPPING",
@@ -194,9 +194,20 @@ def _handle_crash_recovery(app: adsk.core.Application, ui: adsk.core.UserInterfa
     saved_state = SessionPersistence.load_state()
     if not saved_state:
         return False
-    if saved_state.get("state") not in ("PROTECTED", "ACTIVATING"):
+    if saved_state.get("state") not in ("PROTECTED", "ACTIVATING", "RECOVERING"):
         SessionPersistence.clear_state()
         return False
+
+    saved_pid = saved_state.get("pid")
+    if saved_pid is not None:
+        try:
+            os.kill(saved_pid, 0)
+            SessionPersistence.clear_state()
+            return False
+        except ProcessLookupError:
+            pass
+        except OSError:
+            pass
 
     logger = AuditLogger.instance()
     logger.log(
@@ -335,7 +346,7 @@ class _CrashRecoveryCompleteHandler(adsk.core.CustomEventHandler):
             session = SessionManager.instance()
             logger = AuditLogger.instance()
 
-            if not session.is_protected:
+            if session.state != SessionState.RECOVERING:
                 return
 
             enforcer = get_enforcer()
@@ -348,6 +359,7 @@ class _CrashRecoveryCompleteHandler(adsk.core.CustomEventHandler):
                     "Crash recovery failed: could not enable offline mode",
                     "CRITICAL",
                 )
+                session.transition_to(SessionState.UNPROTECTED)
                 session.reset()
                 SessionPersistence.clear_state()
                 logger.end_session_log()
@@ -364,6 +376,8 @@ class _CrashRecoveryCompleteHandler(adsk.core.CustomEventHandler):
                 return
 
             get_interceptor().activate(app)
+            session.transition_to(SessionState.PROTECTED)
+            ui_components.update_button_visibility(SessionState.PROTECTED)
             SessionPersistence.save_state(session)
             logger.log("CRASH_RECOVERY", "Offline enforcement activated after Fusion startup")
         except Exception:

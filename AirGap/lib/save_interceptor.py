@@ -11,19 +11,39 @@ class DocumentSavingHandler(adsk.core.DocumentEventHandler):
     def notify(self, args):
         try:
             event_args = adsk.core.DocumentEventArgs.cast(args)
+        except Exception:
+            try:
+                AuditLogger.instance().log(
+                    "SAVE_BLOCK_ERROR", "Could not cast save event args", "CRITICAL"
+                )
+            except Exception:
+                pass
+            return
+
+        if event_args is None:
+            try:
+                AuditLogger.instance().log(
+                    "SAVE_BLOCK_ERROR", "Save event args cast returned None", "CRITICAL"
+                )
+            except Exception:
+                pass
+            return
+
+        event_args.isSaveCanceled = True
+
+        try:
             session = SessionManager.instance()
             if not session.is_protected:
+                event_args.isSaveCanceled = False
                 return
 
-            event_args.isSaveCanceled = True
             doc_name = event_args.document.name if event_args.document else "Unknown"
             AuditLogger.instance().log(
                 "SAVE_BLOCKED", f"Cloud save blocked for: {doc_name}", "WARNING"
             )
 
             app = adsk.core.Application.get()
-            ui = app.userInterface
-            ui.messageBox(
+            app.userInterface.messageBox(
                 f"CLOUD SAVE BLOCKED\n\n"
                 f"Document: {doc_name}\n\n"
                 f"Cloud saves are blocked during AirGap sessions.\n"
@@ -34,7 +54,14 @@ class DocumentSavingHandler(adsk.core.DocumentEventHandler):
                 adsk.core.MessageBoxIconTypes.CriticalIconType,
             )
         except Exception:
-            pass
+            try:
+                AuditLogger.instance().log(
+                    "SAVE_BLOCK_ERROR",
+                    "Save blocked but handler error during notification",
+                    "ERROR",
+                )
+            except Exception:
+                pass
 
 
 class DocumentOpenedHandler(adsk.core.DocumentEventHandler):

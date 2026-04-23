@@ -1,3 +1,4 @@
+import datetime
 import traceback
 
 import adsk.core
@@ -152,10 +153,24 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                     "WARNING",
                 )
 
+            duration_str = ""
+            if session.session_start_time:
+                try:
+                    start = datetime.datetime.fromisoformat(session.session_start_time)
+                    delta = datetime.datetime.now() - start
+                    hours, remainder = divmod(int(delta.total_seconds()), 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    duration_str = f" Duration: {hours}h {minutes}m {seconds}s."
+                except (ValueError, TypeError):
+                    pass
+
             if substantive_unexported or open_doc_names:
-                logger.log("SESSION_END", "AirGap session ended with warnings (user acknowledged)")
+                logger.log(
+                    "SESSION_END",
+                    f"AirGap session ended with warnings (user acknowledged).{duration_str}",
+                )
             else:
-                logger.log("SESSION_END", "AirGap session ended cleanly")
+                logger.log("SESSION_END", f"AirGap session ended cleanly.{duration_str}")
 
             get_enforcer().deactivate()
             get_interceptor().deactivate()

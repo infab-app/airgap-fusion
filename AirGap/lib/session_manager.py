@@ -12,13 +12,15 @@ class SessionState(enum.Enum):
     ACTIVATING = "ACTIVATING"
     PROTECTED = "PROTECTED"
     DEACTIVATING = "DEACTIVATING"
+    RECOVERING = "RECOVERING"
 
 
 _VALID_TRANSITIONS = {
-    SessionState.UNPROTECTED: [SessionState.ACTIVATING],
+    SessionState.UNPROTECTED: [SessionState.ACTIVATING, SessionState.RECOVERING],
     SessionState.ACTIVATING: [SessionState.PROTECTED, SessionState.UNPROTECTED],
     SessionState.PROTECTED: [SessionState.DEACTIVATING],
     SessionState.DEACTIVATING: [SessionState.PROTECTED, SessionState.UNPROTECTED],
+    SessionState.RECOVERING: [SessionState.PROTECTED, SessionState.UNPROTECTED],
 }
 
 
@@ -62,6 +64,10 @@ class SessionManager:
     @property
     def session_id(self) -> str:
         return self._session_id
+
+    @property
+    def session_start_time(self) -> str | None:
+        return self._session_start_time
 
     @property
     def tracked_documents(self) -> set[str]:
