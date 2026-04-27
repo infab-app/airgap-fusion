@@ -114,9 +114,14 @@ class StopSessionCommand(adsk.core.CommandCreatedEventHandler):
             _handlers.append(validate_handler)
 
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
             app.userInterface.messageBox(
-                f"Error creating stop session dialog:\n{traceback.format_exc()}"
+                "An unexpected error occurred.\nCheck the audit log for details.",
+                "AirGap - Error",
             )
 
 
@@ -175,6 +180,13 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
             else:
                 logger.log("SESSION_END", f"AirGap session ended cleanly.{duration_str}")
 
+            try:
+                from lib.autosave_manager import AutosaveManager
+
+                AutosaveManager.instance().deactivate()
+            except Exception:
+                pass
+
             get_enforcer().deactivate()
             get_interceptor().deactivate()
 
@@ -198,5 +210,12 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                 adsk.core.MessageBoxIconTypes.InformationIconType,
             )
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
-            app.userInterface.messageBox(f"Error stopping session:\n{traceback.format_exc()}")
+            app.userInterface.messageBox(
+                "An unexpected error occurred while stopping session.\nCheck the audit log for details.",
+                "AirGap - Error",
+            )

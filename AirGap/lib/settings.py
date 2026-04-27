@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Optional
 
 import config
+from lib.integrity import is_envelope, unwrap_and_verify, wrap_with_checksum
+from lib.path_validation import secure_file_permissions, secure_mkdir, validate_safe_path
 
 _DEFAULTS = {
     "auto_offline_on_startup": False,
@@ -11,6 +13,10 @@ _DEFAULTS = {
     "update_channel": "stable",
     "auto_check_updates": False,
     "log_directory": "",
+    "autosave_enabled": True,
+    "autosave_interval_minutes": 10,
+    "autosave_max_versions": 3,
+    "autosave_directory": "",
     "version": 1,
 }
 
@@ -39,7 +45,13 @@ class Settings:
             return
         try:
             with open(settings_file, encoding="utf-8") as f:
-                stored = json.load(f)
+                raw = json.load(f)
+            if is_envelope(raw):
+                stored = unwrap_and_verify(raw)
+                if stored is None:
+                    return
+            else:
+                stored = raw
             for key in _DEFAULTS:
                 if key in stored:
                     self._data[key] = stored[key]
@@ -48,11 +60,13 @@ class Settings:
 
     def save(self):
         settings_file = Path(config.SETTINGS_FILE)
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
-        tmp_file = settings_file.with_suffix(".tmp")
+        secure_mkdir(settings_file.parent)
+        envelope = wrap_with_checksum(self._data)
+        tmp_file = settings_file.with_suffix(f".tmp.{__import__('uuid').uuid4().hex[:8]}")
         with open(tmp_file, "w", encoding="utf-8") as f:
-            json.dump(self._data, f, indent=2)
+            json.dump(envelope, f, indent=2)
         tmp_file.replace(settings_file)
+        secure_file_permissions(settings_file)
 
     @property
     def auto_offline_on_startup(self) -> bool:
@@ -76,6 +90,8 @@ class Settings:
 
     @default_export_directory.setter
     def default_export_directory(self, value: str):
+        if value and validate_safe_path(value) is None:
+            return
         self._data["default_export_directory"] = value
 
     @property
@@ -84,6 +100,8 @@ class Settings:
 
     @log_directory.setter
     def log_directory(self, value: str):
+        if value and validate_safe_path(value) is None:
+            return
         self._data["log_directory"] = value
 
     @property
@@ -102,3 +120,37 @@ class Settings:
     @auto_check_updates.setter
     def auto_check_updates(self, value: bool):
         self._data["auto_check_updates"] = value
+
+    @property
+    def autosave_enabled(self) -> bool:
+        return bool(self._data.get("autosave_enabled", True))
+
+    @autosave_enabled.setter
+    def autosave_enabled(self, value: bool):
+        self._data["autosave_enabled"] = value
+
+    @property
+    def autosave_interval_minutes(self) -> int:
+        return max(1, min(60, int(self._data.get("autosave_interval_minutes", 10))))
+
+    @autosave_interval_minutes.setter
+    def autosave_interval_minutes(self, value: int):
+        self._data["autosave_interval_minutes"] = max(1, min(60, int(value)))
+
+    @property
+    def autosave_max_versions(self) -> int:
+        return max(1, min(20, int(self._data.get("autosave_max_versions", 3))))
+
+    @autosave_max_versions.setter
+    def autosave_max_versions(self, value: int):
+        self._data["autosave_max_versions"] = max(1, min(20, int(value)))
+
+    @property
+    def autosave_directory(self) -> str:
+        return self._data.get("autosave_directory", "")
+
+    @autosave_directory.setter
+    def autosave_directory(self, value: str):
+        if value and validate_safe_path(value) is None:
+            return
+        self._data["autosave_directory"] = value

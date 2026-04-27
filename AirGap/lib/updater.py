@@ -198,10 +198,13 @@ def download_and_stage(result: UpdateCheckResult) -> StagingResult:
         "staging_path": str(addin_dir),
         "timestamp": __import__("datetime").datetime.now().isoformat(),
     }
+    from lib.integrity import wrap_with_checksum
+
+    envelope = wrap_with_checksum(pending)
     config.UPDATE_PENDING_FILE.parent.mkdir(parents=True, exist_ok=True)
-    tmp = config.UPDATE_PENDING_FILE.with_suffix(".tmp")
+    tmp = config.UPDATE_PENDING_FILE.with_suffix(f".tmp.{__import__('uuid').uuid4().hex[:8]}")
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(pending, f, indent=2)
+        json.dump(envelope, f, indent=2)
     tmp.replace(config.UPDATE_PENDING_FILE)
 
     return StagingResult(True, addin_dir, None)

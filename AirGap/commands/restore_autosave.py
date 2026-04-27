@@ -1,0 +1,211 @@
+import traceback
+from pathlib import Path
+
+import adsk.core
+
+from lib.audit_logger import AuditLogger
+
+_handlers = []
+
+
+class RestoreAutosaveCommand(adsk.core.CommandCreatedEventHandler):
+    def __init__(self):
+        super().__init__()
+
+    def notify(self, args):
+        try:
+            from lib.autosave_manager import AutosaveManager
+
+            cmd = args.command
+            inputs = cmd.commandInputs
+
+            mgr = AutosaveManager.instance()
+            entries = mgr.get_autosave_list()
+
+            if not entries:
+                inputs.addTextBoxCommandInput(
+                    "noAutosaves", "Status", "No autosave files found.", 2, True
+                )
+                return
+
+            dropdown = inputs.addDropDownCommandInput(
+                "autosaveSelect",
+                "Select Autosave",
+                adsk.core.DropDownStyles.TextListDropDownStyle,
+            )
+            for i, entry in enumerate(entries):
+                label = f"{entry['doc_name']} \u2014 {entry['timestamp']} (#{entry['sequence']})"
+                dropdown.listItems.add(label, i == 0)
+
+            self._entries = entries
+            _update_detail(inputs, entries, 0)
+
+            execute_handler = RestoreExecuteHandler(entries)
+            cmd.execute.add(execute_handler)
+            _handlers.append(execute_handler)
+
+            validate_handler = RestoreValidateHandler()
+            cmd.validateInputs.add(validate_handler)
+            _handlers.append(validate_handler)
+
+            input_changed_handler = RestoreInputChangedHandler(entries)
+            cmd.inputChanged.add(input_changed_handler)
+            _handlers.append(input_changed_handler)
+
+        except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
+            app = adsk.core.Application.get()
+            app.userInterface.messageBox(
+                "An unexpected error occurred.\nCheck the audit log for details.",
+                "AirGap - Error",
+            )
+
+
+def _update_detail(inputs, entries, index):
+    entry = entries[index]
+    autosave_dir = Path(entry.get("_autosave_dir", ""))
+    filepath = autosave_dir / entry.get("filename", "")
+
+    size_kb = entry.get("file_size_bytes", 0) / 1024
+    exists = filepath.exists()
+    status = "File found" if exists else "FILE MISSING"
+
+    detail_text = (
+        f"File: {entry.get('filename', 'unknown')}\nSize: {size_kb:.1f} KB\nStatus: {status}"
+    )
+
+    existing = inputs.itemById("autosaveDetail")
+    if existing:
+        existing.text = detail_text
+    else:
+        inputs.addTextBoxCommandInput("autosaveDetail", "Details", detail_text, 4, True)
+
+
+class RestoreInputChangedHandler(adsk.core.InputChangedEventHandler):
+    def __init__(self, entries):
+        super().__init__()
+        self._entries = entries
+
+    def notify(self, args):
+        try:
+            changed_input = args.input
+            if changed_input.id != "autosaveSelect":
+                return
+            inputs = args.inputs
+            dropdown = inputs.itemById("autosaveSelect")
+            for i in range(dropdown.listItems.count):
+                if dropdown.listItems.item(i).isSelected:
+                    _update_detail(inputs, self._entries, i)
+                    break
+        except Exception:
+            pass
+
+
+class RestoreValidateHandler(adsk.core.ValidateInputsEventHandler):
+    def __init__(self):
+        super().__init__()
+
+    def notify(self, args):
+        try:
+            inputs = args.inputs
+            dropdown = inputs.itemById("autosaveSelect")
+            args.areInputsValid = dropdown is not None and dropdown.listItems.count > 0
+        except Exception:
+            args.areInputsValid = False
+
+
+class RestoreExecuteHandler(adsk.core.CommandEventHandler):
+    def __init__(self, entries):
+        super().__init__()
+        self._entries = entries
+
+    def notify(self, args):
+        try:
+            app = adsk.core.Application.get()
+            ui = app.userInterface
+            inputs = args.command.commandInputs
+
+            dropdown = inputs.itemById("autosaveSelect")
+            selected_idx = 0
+            for i in range(dropdown.listItems.count):
+                if dropdown.listItems.item(i).isSelected:
+                    selected_idx = i
+                    break
+
+            entry = self._entries[selected_idx]
+            autosave_dir = Path(entry.get("_autosave_dir", ""))
+            filepath = autosave_dir / entry.get("filename", "")
+
+            if not filepath.exists():
+                ui.messageBox(
+                    f"Autosave file not found:\n{filepath}",
+                    "AirGap - Restore Failed",
+                    adsk.core.MessageBoxButtonTypes.OKButtonType,
+                    adsk.core.MessageBoxIconTypes.CriticalIconType,
+                )
+                return
+
+            from lib.autosave_manager import AutosaveManager
+
+            verified = AutosaveManager.instance().verify_autosave_file(entry)
+
+            if not verified:
+                result = ui.messageBox(
+                    "WARNING: Checksum verification failed for this autosave file.\n"
+                    "The file may have been modified or corrupted.\n\n"
+                    "Do you still want to open it?",
+                    "AirGap - Integrity Warning",
+                    adsk.core.MessageBoxButtonTypes.YesNoButtonType,
+                    adsk.core.MessageBoxIconTypes.WarningIconType,
+                )
+                if result != adsk.core.DialogResults.DialogYes:
+                    AuditLogger.instance().log(
+                        "AUTOSAVE_INTEGRITY_REJECTED",
+                        f"User declined to open unverified autosave: {filepath}",
+                    )
+                    return
+                AuditLogger.instance().log(
+                    "AUTOSAVE_INTEGRITY_OVERRIDE",
+                    f"User chose to open unverified autosave: {filepath} "
+                    f"(expected checksum: {entry.get('file_checksum', 'none')})",
+                    "WARNING",
+                )
+
+            import_manager = app.importManager
+            import_options = import_manager.createFusionArchiveImportOptions(str(filepath))
+            import_manager.importToNewDocument(import_options)
+
+            try:
+                restored_doc = app.activeDocument
+                if restored_doc and entry.get("doc_name"):
+                    restored_doc.name = entry["doc_name"]
+            except Exception:
+                pass
+
+            verify_status = "verified" if verified else "CHECKSUM MISMATCH (user override)"
+            AuditLogger.instance().log(
+                "AUTOSAVE_RESTORED",
+                f"Restored autosave: {filepath} (integrity: {verify_status})",
+            )
+
+            ui.messageBox(
+                f"Autosave restored: {entry['doc_name']}\n\n"
+                f"The document has been opened from:\n{filepath}\n\n"
+                f"Integrity check: {verify_status}",
+                "AirGap - Restore Complete",
+                adsk.core.MessageBoxButtonTypes.OKButtonType,
+                adsk.core.MessageBoxIconTypes.InformationIconType,
+            )
+        except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
+            app = adsk.core.Application.get()
+            app.userInterface.messageBox(
+                "An unexpected error occurred during restore.\nCheck the audit log for details.",
+                "AirGap - Error",
+            )

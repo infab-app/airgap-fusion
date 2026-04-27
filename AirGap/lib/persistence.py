@@ -1,9 +1,12 @@
 import datetime
 import json
 import os
+import uuid
 from pathlib import Path
 
 import config
+from lib.integrity import is_envelope, unwrap_and_verify, wrap_with_checksum
+from lib.path_validation import secure_file_permissions, secure_mkdir
 from lib.session_manager import SessionManager, SessionState
 
 
@@ -19,12 +22,14 @@ class SessionPersistence:
             "timestamp": datetime.datetime.now().isoformat(),
             "pid": os.getpid(),
         }
+        envelope = wrap_with_checksum(state_data)
         state_file = Path(config.SESSION_STATE_FILE)
-        state_file.parent.mkdir(parents=True, exist_ok=True)
-        tmp_file = state_file.with_suffix(".tmp")
+        secure_mkdir(state_file.parent)
+        tmp_file = state_file.with_suffix(f".tmp.{uuid.uuid4().hex[:8]}")
         with open(tmp_file, "w", encoding="utf-8") as f:
-            json.dump(state_data, f, indent=2)
+            json.dump(envelope, f, indent=2)
         tmp_file.replace(state_file)
+        secure_file_permissions(state_file)
 
     @staticmethod
     def load_state() -> dict | None:
@@ -33,9 +38,38 @@ class SessionPersistence:
             return None
         try:
             with open(state_file, encoding="utf-8") as f:
-                return json.load(f)
+                raw = json.load(f)
         except (json.JSONDecodeError, OSError):
             return None
+
+        if is_envelope(raw):
+            payload = unwrap_and_verify(raw)
+            if payload is None:
+                try:
+                    from lib.audit_logger import AuditLogger
+
+                    AuditLogger.instance().log(
+                        "INTEGRITY_VIOLATION",
+                        "Session state file failed checksum verification; file rejected",
+                        "CRITICAL",
+                    )
+                except Exception:
+                    pass
+                return None
+            return payload
+
+        # Legacy format (pre-checksum): accept once, will be upgraded on next save
+        try:
+            from lib.audit_logger import AuditLogger
+
+            AuditLogger.instance().log(
+                "INTEGRITY_MIGRATION",
+                "Session state file lacks checksum; treating as legacy format",
+                "WARNING",
+            )
+        except Exception:
+            pass
+        return raw
 
     @staticmethod
     def clear_state():

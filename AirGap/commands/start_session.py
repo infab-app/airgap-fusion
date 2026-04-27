@@ -62,9 +62,14 @@ class StartSessionCommand(adsk.core.CommandCreatedEventHandler):
             _handlers.append(input_changed_handler)
 
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
             app.userInterface.messageBox(
-                f"Error creating start session dialog:\n{traceback.format_exc()}"
+                "An unexpected error occurred.\nCheck the audit log for details.",
+                "AirGap - Error",
             )
 
 
@@ -172,6 +177,15 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
             SessionPersistence.save_state(session)
             update_button_visibility(SessionState.PROTECTED)
 
+            from lib.autosave_manager import activate_if_enabled
+
+            activate_if_enabled(app, session_id, export_dir)
+
+            settings = Settings.instance()
+            autosave_info = ""
+            if settings.autosave_enabled:
+                autosave_info = f"- Autosave: every {settings.autosave_interval_minutes}m\n"
+
             if app.activeDocument:
                 doc_name = app.activeDocument.name
                 if not is_default_document(doc_name):
@@ -184,12 +198,20 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
                 f"Export Directory: {export_dir}\n\n"
                 "- Fusion is now OFFLINE\n"
                 "- Cloud saves are BLOCKED\n"
-                '- Use "Export Locally" to save files\n\n'
+                '- Use "Export Locally" to save files\n'
+                f"{autosave_info}\n"
                 "All documents opened during this session will be tracked.",
                 "AirGap - Session Started",
                 adsk.core.MessageBoxButtonTypes.OKButtonType,
                 adsk.core.MessageBoxIconTypes.InformationIconType,
             )
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
-            app.userInterface.messageBox(f"Error starting session:\n{traceback.format_exc()}")
+            app.userInterface.messageBox(
+                "An unexpected error occurred while starting session.\nCheck the audit log for details.",
+                "AirGap - Error",
+            )

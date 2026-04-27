@@ -22,9 +22,14 @@ class ViewLogCommand(adsk.core.CommandCreatedEventHandler):
             cmd.execute.add(execute_handler)
             _handlers.append(execute_handler)
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
             app.userInterface.messageBox(
-                f"Error opening audit log viewer:\n{traceback.format_exc()}"
+                "An unexpected error occurred.\nCheck the audit log for details.",
+                "AirGap - Error",
             )
 
 
@@ -61,5 +66,12 @@ class ViewLogExecuteHandler(adsk.core.CommandEventHandler):
                 else:
                     subprocess.Popen(["open", path_str])
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
-            app.userInterface.messageBox(f"Error opening log:\n{traceback.format_exc()}")
+            app.userInterface.messageBox(
+                "An unexpected error occurred while opening log.\nCheck the audit log for details.",
+                "AirGap - Error",
+            )

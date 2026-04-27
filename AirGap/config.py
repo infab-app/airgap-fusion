@@ -15,6 +15,7 @@ CMD_EXPORT_LOCAL = "airgap_export_local"
 CMD_VIEW_LOG = "airgap_view_log"
 CMD_SETTINGS = "airgap_settings"
 CMD_CHECK_UPDATE = "airgap_check_update"
+CMD_RESTORE_AUTOSAVE = "airgap_restore_autosave"
 
 # Toolbar IDs
 TOOLBAR_TAB_ID = "AirGapTab"
@@ -25,6 +26,17 @@ CUSTOM_EVENT_OFFLINE_CHECK = "AirGap_OfflineCheck"
 
 # Polling interval for offline mode verification (seconds)
 OFFLINE_CHECK_INTERVAL = 5
+
+# Autosave system
+CUSTOM_EVENT_AUTOSAVE = "AirGap_Autosave"
+DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 10
+DEFAULT_AUTOSAVE_MAX_VERSIONS = 3
+AUTOSAVE_SUBDIR = ".airgap_autosave"
+AUTOSAVE_CONSECUTIVE_FAILURE_LIMIT = 3
+
+# Custom events for startup subsystems
+CUSTOM_EVENT_AUTO_START = "AirGap_AutoStart"
+CUSTOM_EVENT_CRASH_RECOVERY = "AirGap_CrashRecoveryComplete"
 
 # Auto-start readiness timing
 AUTO_START_READY_TIMEOUT = 60
