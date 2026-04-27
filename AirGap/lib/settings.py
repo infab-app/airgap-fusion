@@ -17,6 +17,7 @@ _DEFAULTS = {
     "autosave_interval_minutes": 10,
     "autosave_max_versions": 3,
     "autosave_directory": "",
+    "auto_clear_cache": False,
     "version": 1,
 }
 
@@ -154,3 +155,11 @@ class Settings:
         if value and validate_safe_path(value) is None:
             return
         self._data["autosave_directory"] = value
+
+    @property
+    def auto_clear_cache(self) -> bool:
+        return bool(self._data.get("auto_clear_cache", False))
+
+    @auto_clear_cache.setter
+    def auto_clear_cache(self, value: bool):
+        self._data["auto_clear_cache"] = value

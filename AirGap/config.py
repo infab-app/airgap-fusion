@@ -57,6 +57,26 @@ AUDIT_LOG_DIR = _BASE_DIR / "logs"
 SESSION_STATE_FILE = _BASE_DIR / "session_state.json"
 SETTINGS_FILE = _BASE_DIR / "settings.json"
 
+# Fusion 360 cache base directories
+if sys.platform == "win32":
+    FUSION_CACHE_BASES = [
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Autodesk" / "Autodesk Fusion 360",
+    ]
+else:
+    FUSION_CACHE_BASES = [
+        Path.home() / "Library" / "Application Support" / "Autodesk" / "Autodesk Fusion 360",
+        Path.home()
+        / "Library"
+        / "Containers"
+        / "com.autodesk.mas.fusion360"
+        / "Data"
+        / "Library"
+        / "Application Support"
+        / "Autodesk",
+    ]
+
+FUSION_CACHE_SUBDIRS = ["W.Login", "DataCache"]
+
 # Update system
 CUSTOM_EVENT_UPDATE_CHECK = "AirGap_UpdateCheck"
 GITHUB_OWNER = "infab-app"
