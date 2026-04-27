@@ -65,57 +65,59 @@ class SettingsCommand(adsk.core.CommandCreatedEventHandler):
             channel_dropdown.listItems.add("Stable", settings.update_channel == "stable")
             channel_dropdown.listItems.add("Beta", settings.update_channel == "beta")
 
-            inputs.addBoolValueInput(
-                "autosaveEnabled",
-                "Enable autosave during sessions",
-                True,
-                "",
-                settings.autosave_enabled,
-            )
-
-            inputs.addStringValueInput(
-                "autosaveInterval",
-                "Autosave interval (minutes)",
-                str(settings.autosave_interval_minutes),
-            )
-
-            inputs.addStringValueInput(
-                "autosaveMaxVersions",
-                "Max autosave versions per document",
-                str(settings.autosave_max_versions),
-            )
-
-            inputs.addStringValueInput(
-                "autosaveDir",
-                "Autosave directory (blank for default)",
-                settings.autosave_directory,
-            )
-
-            inputs.addBoolValueInput(
-                "browseAutosaveDir", "Browse Autosave Dir...", False, "", False
-            )
+            _add_autosave_inputs(inputs, settings)
 
             inputs.addTextBoxCommandInput(
                 "settingsInfo", "Settings File", str(config.SETTINGS_FILE), 1, True
             )
 
-            execute_handler = SettingsExecuteHandler()
-            cmd.execute.add(execute_handler)
-            _handlers.append(execute_handler)
-
-            validate_handler = SettingsValidateHandler()
-            cmd.validateInputs.add(validate_handler)
-            _handlers.append(validate_handler)
-
-            input_changed_handler = SettingsInputChangedHandler()
-            cmd.inputChanged.add(input_changed_handler)
-            _handlers.append(input_changed_handler)
+            _register_handlers(cmd)
 
         except Exception:
             app = adsk.core.Application.get()
             app.userInterface.messageBox(
                 f"Error creating settings dialog:\n{traceback.format_exc()}"
             )
+
+
+def _add_autosave_inputs(inputs, settings):
+    inputs.addBoolValueInput(
+        "autosaveEnabled",
+        "Enable autosave during sessions",
+        True,
+        "",
+        settings.autosave_enabled,
+    )
+    inputs.addStringValueInput(
+        "autosaveInterval",
+        "Autosave interval (minutes)",
+        str(settings.autosave_interval_minutes),
+    )
+    inputs.addStringValueInput(
+        "autosaveMaxVersions",
+        "Max autosave versions per document",
+        str(settings.autosave_max_versions),
+    )
+    inputs.addStringValueInput(
+        "autosaveDir",
+        "Autosave directory (blank for default)",
+        settings.autosave_directory,
+    )
+    inputs.addBoolValueInput("browseAutosaveDir", "Browse Autosave Dir...", False, "", False)
+
+
+def _register_handlers(cmd):
+    execute_handler = SettingsExecuteHandler()
+    cmd.execute.add(execute_handler)
+    _handlers.append(execute_handler)
+
+    validate_handler = SettingsValidateHandler()
+    cmd.validateInputs.add(validate_handler)
+    _handlers.append(validate_handler)
+
+    input_changed_handler = SettingsInputChangedHandler()
+    cmd.inputChanged.add(input_changed_handler)
+    _handlers.append(input_changed_handler)
 
 
 class SettingsInputChangedHandler(adsk.core.InputChangedEventHandler):
@@ -127,35 +129,19 @@ class SettingsInputChangedHandler(adsk.core.InputChangedEventHandler):
             changed_input = args.input
             inputs = args.inputs
 
-            if changed_input.id == "browseDir":
-                app = adsk.core.Application.get()
-                ui = app.userInterface
-                folder_dlg = ui.createFolderDialog()
-                folder_dlg.title = "Select Default Export Directory"
-                result = folder_dlg.showDialog()
-                if result == adsk.core.DialogResults.DialogOK:
-                    dir_input = inputs.itemById("defaultExportDir")
-                    dir_input.value = folder_dlg.folder
+            _BROWSE_TARGETS = {
+                "browseDir": ("Select Default Export Directory", "defaultExportDir"),
+                "browseLogDir": ("Select Log Directory", "logDir"),
+                "browseAutosaveDir": ("Select Autosave Directory", "autosaveDir"),
+            }
 
-            elif changed_input.id == "browseLogDir":
+            if changed_input.id in _BROWSE_TARGETS:
+                title, target_id = _BROWSE_TARGETS[changed_input.id]
                 app = adsk.core.Application.get()
-                ui = app.userInterface
-                folder_dlg = ui.createFolderDialog()
-                folder_dlg.title = "Select Log Directory"
-                result = folder_dlg.showDialog()
-                if result == adsk.core.DialogResults.DialogOK:
-                    dir_input = inputs.itemById("logDir")
-                    dir_input.value = folder_dlg.folder
-
-            elif changed_input.id == "browseAutosaveDir":
-                app = adsk.core.Application.get()
-                ui = app.userInterface
-                folder_dlg = ui.createFolderDialog()
-                folder_dlg.title = "Select Autosave Directory"
-                result = folder_dlg.showDialog()
-                if result == adsk.core.DialogResults.DialogOK:
-                    dir_input = inputs.itemById("autosaveDir")
-                    dir_input.value = folder_dlg.folder
+                folder_dlg = app.userInterface.createFolderDialog()
+                folder_dlg.title = title
+                if folder_dlg.showDialog() == adsk.core.DialogResults.DialogOK:
+                    inputs.itemById(target_id).value = folder_dlg.folder
 
             elif changed_input.id == "autoOffline":
                 auto_offline = inputs.itemById("autoOffline")

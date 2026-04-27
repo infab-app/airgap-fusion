@@ -34,6 +34,10 @@ DEFAULT_AUTOSAVE_MAX_VERSIONS = 3
 AUTOSAVE_SUBDIR = ".airgap_autosave"
 AUTOSAVE_CONSECUTIVE_FAILURE_LIMIT = 3
 
+# Custom events for startup subsystems
+CUSTOM_EVENT_AUTO_START = "AirGap_AutoStart"
+CUSTOM_EVENT_CRASH_RECOVERY = "AirGap_CrashRecoveryComplete"
+
 # Auto-start readiness timing
 AUTO_START_READY_TIMEOUT = 60
 AUTO_START_READY_POLL = 2

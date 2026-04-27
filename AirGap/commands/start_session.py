@@ -172,19 +172,13 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
             SessionPersistence.save_state(session)
             update_button_visibility(SessionState.PROTECTED)
 
+            from lib.autosave_manager import activate_if_enabled
+
+            activate_if_enabled(app, session_id, export_dir)
+
             settings = Settings.instance()
             autosave_info = ""
             if settings.autosave_enabled:
-                from lib.autosave_manager import AutosaveManager
-
-                autosave_dir = settings.autosave_directory or export_dir
-                AutosaveManager.instance().activate(
-                    app,
-                    session_id,
-                    autosave_dir,
-                    settings.autosave_interval_minutes * 60,
-                    settings.autosave_max_versions,
-                )
                 autosave_info = f"- Autosave: every {settings.autosave_interval_minutes}m\n"
 
             if app.activeDocument:

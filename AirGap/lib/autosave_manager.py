@@ -18,6 +18,22 @@ def _safe_name(doc_name: str) -> str:
     return "".join(c if c.isalnum() or c in "-_ " else "_" for c in doc_name)
 
 
+def activate_if_enabled(app: adsk.core.Application, session_id: str, export_dir: str):
+    from lib.settings import Settings
+
+    settings = Settings.instance()
+    if not settings.autosave_enabled:
+        return
+    autosave_dir = settings.autosave_directory or export_dir
+    AutosaveManager.instance().activate(
+        app,
+        session_id,
+        autosave_dir,
+        settings.autosave_interval_minutes * 60,
+        settings.autosave_max_versions,
+    )
+
+
 class AutosaveThread(threading.Thread):
     def __init__(self, stop_event: threading.Event, app: adsk.core.Application, interval: int):
         super().__init__()
@@ -132,70 +148,11 @@ class AutosaveManager:
             return
 
         try:
-            app = adsk.core.Application.get()
-            doc = app.activeDocument
-            if not doc:
+            result = self._export_active_document()
+            if result is None:
                 return
-
-            doc_name = doc.name
-            if is_default_document(doc_name):
-                return
-
-            safe = _safe_name(doc_name)
-            project_dir = Path(self._export_dir) / safe
-            autosave_dir = project_dir / config.AUTOSAVE_SUBDIR
-            autosave_dir.mkdir(parents=True, exist_ok=True)
-
-            seq = self._sequences.get(doc_name, 0) + 1
-            self._sequences[doc_name] = seq
-
-            has_xrefs = LocalExportManager.has_external_references()
-            ext = ".f3z" if has_xrefs else ".f3d"
-            filename = f"{safe}_autosave_{seq:03d}{ext}"
-            filepath = autosave_dir / filename
-
-            ok = LocalExportManager.export_fusion_archive(str(filepath))
-            if not ok:
-                self._consecutive_failures += 1
-                AuditLogger.instance().log(
-                    "AUTOSAVE_FAILED",
-                    f"Autosave export failed for {doc_name} "
-                    f"(consecutive failures: {self._consecutive_failures})",
-                    "ERROR",
-                )
-                if self._consecutive_failures >= config.AUTOSAVE_CONSECUTIVE_FAILURE_LIMIT:
-                    AuditLogger.instance().log(
-                        "AUTOSAVE_WARN",
-                        f"Autosave has failed {self._consecutive_failures} consecutive times",
-                        "WARNING",
-                    )
-                return
-
-            self._consecutive_failures = 0
-            checksum = file_checksum(filepath)
-            file_size = filepath.stat().st_size
-
-            entry = {
-                "doc_name": doc_name,
-                "filename": filename,
-                "sequence": seq,
-                "timestamp": datetime.datetime.now().isoformat(),
-                "file_checksum": checksum,
-                "file_size_bytes": file_size,
-            }
-
-            if doc_name not in self._manifests:
-                self._manifests[doc_name] = self._load_manifest_entries(autosave_dir, doc_name)
-            self._manifests[doc_name].append(entry)
-
-            self._prune(doc_name, autosave_dir)
-            self._save_manifest(autosave_dir, doc_name)
-
-            AuditLogger.instance().log(
-                "AUTOSAVE_SUCCESS",
-                f"Autosaved {doc_name} → {filepath} ({file_size} bytes, seq #{seq})",
-            )
-
+            filepath, doc_name, seq, autosave_dir = result
+            self._record_autosave(doc_name, filepath, seq, autosave_dir)
         except Exception:
             self._consecutive_failures += 1
             try:
@@ -206,6 +163,74 @@ class AutosaveManager:
                 )
             except Exception:
                 pass
+
+    def _export_active_document(self):
+        app = adsk.core.Application.get()
+        doc = app.activeDocument
+        if not doc:
+            return None
+
+        doc_name = doc.name
+        if is_default_document(doc_name):
+            return None
+
+        safe = _safe_name(doc_name)
+        project_dir = Path(self._export_dir) / safe
+        autosave_dir = project_dir / config.AUTOSAVE_SUBDIR
+        autosave_dir.mkdir(parents=True, exist_ok=True)
+
+        seq = self._sequences.get(doc_name, 0) + 1
+        self._sequences[doc_name] = seq
+
+        has_xrefs = LocalExportManager.has_external_references()
+        ext = ".f3z" if has_xrefs else ".f3d"
+        filename = f"{safe}_autosave_{seq:03d}{ext}"
+        filepath = autosave_dir / filename
+
+        ok = LocalExportManager.export_fusion_archive(str(filepath))
+        if not ok:
+            self._consecutive_failures += 1
+            AuditLogger.instance().log(
+                "AUTOSAVE_FAILED",
+                f"Autosave export failed for {doc_name} "
+                f"(consecutive failures: {self._consecutive_failures})",
+                "ERROR",
+            )
+            if self._consecutive_failures >= config.AUTOSAVE_CONSECUTIVE_FAILURE_LIMIT:
+                AuditLogger.instance().log(
+                    "AUTOSAVE_WARN",
+                    f"Autosave has failed {self._consecutive_failures} consecutive times",
+                    "WARNING",
+                )
+            return None
+
+        self._consecutive_failures = 0
+        return filepath, doc_name, seq, autosave_dir
+
+    def _record_autosave(self, doc_name, filepath, seq, autosave_dir):
+        checksum = file_checksum(filepath)
+        file_size = filepath.stat().st_size
+
+        entry = {
+            "doc_name": doc_name,
+            "filename": filepath.name,
+            "sequence": seq,
+            "timestamp": datetime.datetime.now().isoformat(),
+            "file_checksum": checksum,
+            "file_size_bytes": file_size,
+        }
+
+        if doc_name not in self._manifests:
+            self._manifests[doc_name] = self._load_manifest_entries(autosave_dir, doc_name)
+        self._manifests[doc_name].append(entry)
+
+        self._prune(doc_name, autosave_dir)
+        self._save_manifest(autosave_dir, doc_name)
+
+        AuditLogger.instance().log(
+            "AUTOSAVE_SUCCESS",
+            f"Autosaved {doc_name} → {filepath} ({file_size} bytes, seq #{seq})",
+        )
 
     def get_autosave_list(self) -> list[dict]:
         all_entries = []
