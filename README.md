@@ -1,6 +1,6 @@
-# AirGap for Fusion 360
+# AirGap for Autodesk Fusion
 
-**An open-source Fusion 360 add-in by [Infab Softworks](https://infab.app)** that adds application-level safeguards for working with export-controlled design data. AirGap locks Fusion into offline mode, blocks cloud saves, and provides local-only file export, giving teams an additional layer of protection when using Fusion 360 in export controlled workflows.
+**An open-source Autodesk Fusion add-in by [Infab Softworks](https://infab.app)** that adds application-level safeguards for working with export-controlled design data. AirGap locks Fusion into offline mode, blocks cloud saves, and provides local-only file export, giving teams an additional layer of protection when using Fusion 360 in export controlled workflows.
 
 > **Disclaimer:** AirGap is designed to operate within an existing ITAR-compliant environment. It is not a substitute for compliant network architecture, access controls, or a formal compliance program. Autodesk Fusion 360 is not ITAR-compliant per Autodesk's own documentation. Consult your compliance officers before relying on this or any tool for export-controlled work.
 
