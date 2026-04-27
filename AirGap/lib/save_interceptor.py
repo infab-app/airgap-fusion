@@ -1,3 +1,6 @@
+import re
+from pathlib import Path
+
 import adsk.core
 
 from lib.audit_logger import AuditLogger
@@ -42,17 +45,51 @@ class DocumentSavingHandler(adsk.core.DocumentEventHandler):
                 "SAVE_BLOCKED", f"Cloud save blocked for: {doc_name}", "WARNING"
             )
 
+            exported = False
+            export_path = ""
+            try:
+                from lib.export_manager import LocalExportManager
+
+                export_dir_root = session.export_directory
+                if export_dir_root:
+                    clean_name = re.sub(r"( v\d+)+$", "", doc_name).strip() or doc_name
+                    safe = "".join(
+                        c if c.isalnum() or c in "-_ " else "_" for c in clean_name
+                    )
+                    export_dir = Path(export_dir_root) / safe
+                    export_dir.mkdir(parents=True, exist_ok=True)
+
+                    has_xrefs = LocalExportManager.has_external_references()
+                    ext = ".f3z" if has_xrefs else ".f3d"
+                    export_path = str(export_dir / f"{safe}{ext}")
+
+                    if LocalExportManager.export_fusion_archive(export_path):
+                        exported = True
+            except Exception:
+                pass
+
             app = adsk.core.Application.get()
-            app.userInterface.messageBox(
-                f"CLOUD SAVE BLOCKED\n\n"
-                f"Document: {doc_name}\n\n"
-                f"Cloud saves are blocked during AirGap sessions.\n"
-                f'Use the AirGap "Export Locally" button to save '
-                f"files to your local or NAS storage.",
-                "AirGap - Save Blocked",
-                adsk.core.MessageBoxButtonTypes.OKButtonType,
-                adsk.core.MessageBoxIconTypes.CriticalIconType,
-            )
+            if exported:
+                app.userInterface.messageBox(
+                    f"CLOUD SAVE BLOCKED\n\n"
+                    f"Document: {doc_name}\n\n"
+                    f"Cloud saves are blocked during AirGap sessions.\n"
+                    f"Your work has been exported locally to:\n{export_path}",
+                    "AirGap - Save Blocked",
+                    adsk.core.MessageBoxButtonTypes.OKButtonType,
+                    adsk.core.MessageBoxIconTypes.InformationIconType,
+                )
+            else:
+                app.userInterface.messageBox(
+                    f"CLOUD SAVE BLOCKED\n\n"
+                    f"Document: {doc_name}\n\n"
+                    f"Cloud saves are blocked during AirGap sessions.\n"
+                    f'Use the AirGap "Export Locally" button to save '
+                    f"files to your local or NAS storage.",
+                    "AirGap - Save Blocked",
+                    adsk.core.MessageBoxButtonTypes.OKButtonType,
+                    adsk.core.MessageBoxIconTypes.CriticalIconType,
+                )
         except Exception:
             try:
                 AuditLogger.instance().log(

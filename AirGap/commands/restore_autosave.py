@@ -174,7 +174,16 @@ class RestoreExecuteHandler(adsk.core.CommandEventHandler):
                     "WARNING",
                 )
 
-            app.documents.open(str(filepath))
+            import_manager = app.importManager
+            import_options = import_manager.createFusionArchiveImportOptions(str(filepath))
+            import_manager.importToNewDocument(import_options)
+
+            try:
+                restored_doc = app.activeDocument
+                if restored_doc and entry.get("doc_name"):
+                    restored_doc.name = entry["doc_name"]
+            except Exception:
+                pass
 
             verify_status = "verified" if verified else "CHECKSUM MISMATCH (user override)"
             AuditLogger.instance().log(
