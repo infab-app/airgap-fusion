@@ -41,6 +41,14 @@ class SettingsCommand(adsk.core.CommandCreatedEventHandler):
 
             inputs.addBoolValueInput("browseDir", "Browse...", False, "", False)
 
+            inputs.addStringValueInput(
+                "logDir",
+                "Log Directory",
+                settings.log_directory if settings.log_directory else str(config.AUDIT_LOG_DIR),
+            )
+
+            inputs.addBoolValueInput("browseLogDir", "Browse...", False, "", False)
+
             inputs.addBoolValueInput(
                 "autoCheckUpdates",
                 "Check for updates when Fusion starts",
@@ -99,6 +107,16 @@ class SettingsInputChangedHandler(adsk.core.InputChangedEventHandler):
                     dir_input = inputs.itemById("defaultExportDir")
                     dir_input.value = folder_dlg.folder
 
+            elif changed_input.id == "browseLogDir":
+                app = adsk.core.Application.get()
+                ui = app.userInterface
+                folder_dlg = ui.createFolderDialog()
+                folder_dlg.title = "Select Log Directory"
+                result = folder_dlg.showDialog()
+                if result == adsk.core.DialogResults.DialogOK:
+                    dir_input = inputs.itemById("logDir")
+                    dir_input.value = folder_dlg.folder
+
             elif changed_input.id == "autoOffline":
                 auto_offline = inputs.itemById("autoOffline")
                 auto_session = inputs.itemById("autoSession")
@@ -117,7 +135,14 @@ class SettingsValidateHandler(adsk.core.ValidateInputsEventHandler):
         try:
             inputs = args.inputs
             dir_input = inputs.itemById("defaultExportDir")
-            args.areInputsValid = bool(dir_input.value.strip())
+            if not dir_input.value.strip():
+                args.areInputsValid = False
+                return
+            log_dir_input = inputs.itemById("logDir")
+            if not log_dir_input.value.strip():
+                args.areInputsValid = False
+                return
+            args.areInputsValid = True
         except Exception:
             args.areInputsValid = False
 
@@ -134,6 +159,14 @@ class SettingsExecuteHandler(adsk.core.CommandEventHandler):
             settings.auto_offline_on_startup = inputs.itemById("autoOffline").value
             settings.auto_start_session = inputs.itemById("autoSession").value
             settings.default_export_directory = inputs.itemById("defaultExportDir").value.strip()
+
+            log_dir_value = inputs.itemById("logDir").value.strip()
+            if log_dir_value == str(config.AUDIT_LOG_DIR):
+                settings.log_directory = ""
+            else:
+                settings.log_directory = log_dir_value
+            AuditLogger.instance().set_log_dir(settings.log_directory)
+
             settings.auto_check_updates = inputs.itemById("autoCheckUpdates").value
 
             channel_input = inputs.itemById("updateChannel")
@@ -148,6 +181,7 @@ class SettingsExecuteHandler(adsk.core.CommandEventHandler):
                 f"Settings updated: auto_offline={settings.auto_offline_on_startup}, "
                 f"auto_session={settings.auto_start_session}, "
                 f"export_dir={settings.default_export_directory}, "
+                f"log_dir={settings.log_directory or 'default'}, "
                 f"auto_check_updates={settings.auto_check_updates}, "
                 f"update_channel={settings.update_channel}",
             )

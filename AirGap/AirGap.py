@@ -123,6 +123,10 @@ def run(context):
                 adsk.core.MessageBoxIconTypes.InformationIconType,
             )
 
+        _settings = Settings.instance()
+        if _settings.log_directory:
+            AuditLogger.instance().set_log_dir(_settings.log_directory)
+
         restored = _handle_crash_recovery(_app, _ui)
 
         ui_components.create_ui(_app)

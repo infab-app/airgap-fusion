@@ -24,7 +24,11 @@ class AuditLogger:
 
     def start_session_log(self, session_id: str):
         self._session_id = session_id
-        self._log_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self._log_dir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            self._log_dir = Path(config.AUDIT_LOG_DIR)
+            self._log_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"airgap_{timestamp}_{session_id}.jsonl"
         self._current_log_file = self._log_dir / filename
@@ -46,7 +50,11 @@ class AuditLogger:
 
         log_file = self._current_log_file
         if log_file is None:
-            self._log_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                self._log_dir.mkdir(parents=True, exist_ok=True)
+            except OSError:
+                self._log_dir = Path(config.AUDIT_LOG_DIR)
+                self._log_dir.mkdir(parents=True, exist_ok=True)
             log_file = self._log_dir / "airgap_unsessioned.jsonl"
 
         try:
@@ -60,6 +68,12 @@ class AuditLogger:
 
     def get_log_dir(self):
         return self._log_dir
+
+    def set_log_dir(self, path: str):
+        if path.strip():
+            self._log_dir = Path(path)
+        else:
+            self._log_dir = Path(config.AUDIT_LOG_DIR)
 
     @staticmethod
     def _get_user():
