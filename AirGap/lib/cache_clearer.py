@@ -1,3 +1,4 @@
+import fnmatch
 import os
 from pathlib import Path
 
@@ -31,53 +32,102 @@ class CacheClearResult:
         )
 
 
-def _safe_rmtree(
-    root: Path, result: CacheClearResult, logger: "AuditLogger"
-) -> tuple[int, int]:
-    """Walk bottom-up and delete, checking every node for symlinks."""
-    deleted = 0
-    failed = 0
-    for dirpath, dirnames, filenames in os.walk(root, topdown=False, followlinks=False):
-        dp = Path(dirpath)
-        for name in filenames:
-            fp = dp / name
-            if fp.is_symlink():
-                result.errors.append(f"Skipped symlink: {fp}")
-                logger.log(
-                    "CACHE_CLEAR_SKIP",
-                    f"Skipped symlink during tree walk: {fp}",
-                    "WARNING",
-                )
-                continue
-            try:
-                fp.unlink()
-                deleted += 1
-            except OSError as e:
-                failed += 1
-                result.errors.append(f"{fp}: {e}")
-        for name in dirnames:
-            dp_child = dp / name
-            if dp_child.is_symlink():
-                result.errors.append(f"Skipped symlink: {dp_child}")
-                logger.log(
-                    "CACHE_CLEAR_SKIP",
-                    f"Skipped symlink during tree walk: {dp_child}",
-                    "WARNING",
-                )
-                continue
-            try:
-                dp_child.rmdir()
-                deleted += 1
-            except OSError as e:
-                failed += 1
-                result.errors.append(f"{dp_child}: {e}")
+def _discover_user_dirs(base: Path) -> list[Path]:
+    """Find user-hash directories inside a Fusion cache base."""
+    user_dirs = []
     try:
-        root.rmdir()
-        deleted += 1
+        for entry in os.scandir(base):
+            if not entry.is_dir(follow_symlinks=False):
+                continue
+            if entry.name.startswith("."):
+                continue
+            name = entry.name
+            if len(name) >= 8 and name.isalnum() and name.isupper():
+                user_dirs.append(Path(entry.path))
+    except OSError:
+        pass
+    return user_dirs
+
+
+def _delete_sensitive_files_recursive(
+    directory: Path, patterns: list[str], result: CacheClearResult, logger: "AuditLogger"
+):
+    """Recursively walk a directory and delete only files matching sensitive patterns."""
+    if not directory.exists():
+        return
+    if directory.is_symlink():
+        result.errors.append(f"Skipped symlink: {directory}")
+        logger.log(
+            "CACHE_CLEAR_SKIP",
+            f"Directory is a symlink, skipped: {directory}",
+            "WARNING",
+        )
+        return
+
+    result.dirs_attempted.append(str(directory))
+
+    try:
+        for dirpath, _dirnames, filenames in os.walk(
+            directory, topdown=True, followlinks=False
+        ):
+            dp = Path(dirpath)
+            for name in filenames:
+                if not any(fnmatch.fnmatch(name, pat) for pat in patterns):
+                    continue
+                fp = dp / name
+                if fp.is_symlink():
+                    result.errors.append(f"Skipped symlink: {fp}")
+                    continue
+                try:
+                    fp.unlink()
+                    result.files_deleted += 1
+                except OSError as e:
+                    result.files_failed += 1
+                    result.errors.append(f"{fp}: {e}")
     except OSError as e:
-        failed += 1
-        result.errors.append(f"{root}: {e}")
-    return deleted, failed
+        result.errors.append(f"Cannot walk {directory}: {e}")
+        logger.log(
+            "CACHE_CLEAR_ERROR",
+            f"Cannot walk directory {directory}: {e}",
+            "ERROR",
+        )
+
+
+_EMPTY_CACHE_QUEUE = (
+    '<?xml version="1.0" encoding="UTF-16" standalone="no" ?>\n'
+    "<CacheCommandUrns/>\n"
+).encode("utf-16")
+
+
+def _reset_upload_queue(
+    wlogin_dir: Path, result: CacheClearResult, logger: "AuditLogger"
+):
+    """Reset CacheCommandQueue XML files to empty, preventing queued uploads."""
+    if not wlogin_dir.exists():
+        return
+    try:
+        for entry in os.scandir(wlogin_dir):
+            if not entry.is_file(follow_symlinks=False):
+                continue
+            if not fnmatch.fnmatch(entry.name, "CacheCommandQueue*.xml"):
+                continue
+            entry_path = Path(entry.path)
+            if entry_path.is_symlink():
+                result.errors.append(f"Skipped symlink: {entry_path}")
+                continue
+            try:
+                entry_path.write_bytes(_EMPTY_CACHE_QUEUE)
+                result.files_deleted += 1
+            except OSError as e:
+                result.files_failed += 1
+                result.errors.append(f"{entry_path}: {e}")
+    except OSError as e:
+        result.errors.append(f"Cannot scan {wlogin_dir}: {e}")
+        logger.log(
+            "CACHE_CLEAR_ERROR",
+            f"Cannot scan for upload queues in {wlogin_dir}: {e}",
+            "ERROR",
+        )
 
 
 def clear_fusion_cache() -> CacheClearResult:
@@ -87,62 +137,20 @@ def clear_fusion_cache() -> CacheClearResult:
     for base in config.FUSION_CACHE_BASES:
         if not base.exists():
             continue
-        for subdir_name in config.FUSION_CACHE_SUBDIRS:
-            cache_dir = base / subdir_name
-            if not cache_dir.exists():
-                continue
-            if cache_dir.is_symlink():
-                result.errors.append(f"Skipped symlink: {cache_dir}")
-                logger.log(
-                    "CACHE_CLEAR_SKIP",
-                    f"Cache directory is a symlink, skipped: {cache_dir}",
-                    "WARNING",
+
+        user_dirs = _discover_user_dirs(base)
+        if not user_dirs:
+            continue
+
+        for user_dir in user_dirs:
+            for subdir_name in config.FUSION_CACHE_SUBDIRS:
+                subdir = user_dir / subdir_name
+                _delete_sensitive_files_recursive(
+                    subdir,
+                    config.FUSION_CACHE_SENSITIVE_PATTERNS,
+                    result,
+                    logger,
                 )
-                continue
-
-            result.dirs_attempted.append(str(cache_dir))
-            dir_deleted = 0
-            dir_failed = 0
-
-            try:
-                entries = list(os.scandir(cache_dir))
-            except OSError as e:
-                result.errors.append(f"Cannot scan {cache_dir}: {e}")
-                logger.log(
-                    "CACHE_CLEAR_ERROR",
-                    f"Cannot scan cache directory {cache_dir}: {e}",
-                    "ERROR",
-                )
-                continue
-
-            if len(entries) > 10000:
-                logger.log(
-                    "CACHE_CLEAR_LARGE_DIR",
-                    f"Large cache directory ({len(entries)} top-level entries): {cache_dir}",
-                    "WARNING",
-                )
-
-            for entry in entries:
-                try:
-                    entry_path = Path(entry.path)
-                    if entry_path.is_symlink():
-                        result.errors.append(f"Skipped symlink: {entry_path}")
-                        continue
-                    if entry.is_dir(follow_symlinks=False):
-                        deleted, failed = _safe_rmtree(entry_path, result, logger)
-                        dir_deleted += deleted
-                        dir_failed += failed
-                    else:
-                        entry_path.unlink()
-                        dir_deleted += 1
-                except OSError as e:
-                    dir_failed += 1
-                    result.errors.append(f"{entry.path}: {e}")
-
-            result.files_deleted += dir_deleted
-            result.files_failed += dir_failed
-
-            if dir_failed == 0:
-                result.dirs_cleared.append(str(cache_dir))
+                _reset_upload_queue(subdir, result, logger)
 
     return result

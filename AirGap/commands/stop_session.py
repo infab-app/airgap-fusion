@@ -186,14 +186,21 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                         "WARNING",
                     )
 
-                try:
-                    from pathlib import Path
+                from pathlib import Path
 
-                    from lib.export_manager import LocalExportManager
+                from lib.export_manager import LocalExportManager
 
-                    doc = app.activeDocument
-                    if doc and not is_default_document(doc.name):
+                for i in range(app.documents.count):
+                    try:
+                        doc = app.documents.item(i)
+                        if not doc or is_default_document(doc.name):
+                            continue
                         doc_name = doc.name
+                        if doc_name not in session.tracked_documents:
+                            continue
+                        if doc_name in session.exported_documents:
+                            continue
+                        doc.activate()
                         safe = "".join(
                             c if c.isalnum() or c in "-_ " else "_" for c in doc_name
                         )
@@ -215,12 +222,13 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                                 f"Final export failed for {doc_name}",
                                 "WARNING",
                             )
-                except Exception:
-                    logger.log(
-                        "CACHE_CLEAR_EXPORT_FAILED",
-                        f"Final export before cache clear failed: {traceback.format_exc()}",
-                        "WARNING",
-                    )
+                    except Exception:
+                        logger.log(
+                            "CACHE_CLEAR_EXPORT_FAILED",
+                            f"Final export before cache clear failed for document: "
+                            f"{traceback.format_exc()}",
+                            "WARNING",
+                        )
 
             if not session.transition_to(SessionState.DEACTIVATING):
                 ui.messageBox("Cannot stop session: invalid state transition.", "AirGap - Error")
@@ -258,9 +266,12 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
 
                     logger.log("CACHE_CLEAR_START", "Automatic cache clear initiated")
                     clear_result = clear_fusion_cache()
+                    detail = clear_result.summary()
+                    if clear_result.errors:
+                        detail += f" | Errors: {clear_result.errors}"
                     logger.log(
                         "CACHE_CLEAR_COMPLETE",
-                        clear_result.summary(),
+                        detail,
                         "WARNING" if clear_result.files_failed > 0 else "INFO",
                     )
                 except Exception:
@@ -294,12 +305,27 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                         f"\n\nCache cleared successfully. "
                         f"{clear_result.files_deleted} items removed."
                     )
-                elif clear_result.partial:
+                elif clear_result.partial or clear_result.files_failed > 0:
+                    failed_f3ds = []
+                    for err in clear_result.errors:
+                        path_part = err.split(":")[0].strip()
+                        if path_part.endswith(".f3d"):
+                            name = Path(path_part).name
+                            display = name.rsplit(".", 2)[0] if "." in name else name
+                            if display not in failed_f3ds:
+                                failed_f3ds.append(display)
                     cache_msg = (
                         f"\n\nCache partially cleared: {clear_result.files_deleted} items "
                         f"removed, {clear_result.files_failed} items could not be deleted "
-                        f"(likely locked by Fusion). Consider clearing manually after "
-                        f"closing Fusion."
+                        f"(likely locked by Fusion)."
+                    )
+                    if failed_f3ds:
+                        cache_msg += (
+                            f"\n\nCached designs that could not be removed:"
+                            f"\n- " + "\n- ".join(failed_f3ds)
+                        )
+                    cache_msg += (
+                        "\n\nConsider clearing manually after closing Fusion."
                     )
                 else:
                     cache_msg = (

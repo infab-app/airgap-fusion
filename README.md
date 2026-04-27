@@ -24,7 +24,7 @@ UNPROTECTED → ACTIVATING → PROTECTED → DEACTIVATING → UNPROTECTED
 - **Local Export** — Supports F3D (Fusion Archive), STEP, STL, IGES, and SAT.
 - **Audit Logging** — Append-only JSONL logs record every session event (start, stop, exports, blocked saves, violations) for compliance auditing.
 - **Crash Recovery** — Session state is persisted to disk. If Fusion crashes during a session, AirGap forces offline mode on restart and offers to restore the session.
-- **Cache Clearing** — Optionally clears Fusion's local data cache (`W.Login`, `DataCache`) when ending a session to reduce the risk of cached design data syncing to Autodesk servers when going back online.
+- **Cache Clearing** — Optionally clears cached design files (`.f3d`, `.f3z`) and resets pending upload queues when ending a session to reduce the risk of cached design data syncing to Autodesk servers when going back online. Offline mode metadata is preserved so Fusion can remain offline after clearing.
 - **Cross-Platform** — Single Python codebase for Windows and macOS.
 - **Auto-Update** - Optionally check for updates automatically on Fusion startup, notifying you of any new updates and can update itself after user confirmation
 
@@ -113,7 +113,7 @@ Once running, AirGap adds an **AirGap** tab to the toolbar in both the Design an
 4. Confirm both acknowledgment checkboxes
 5. Click **OK** — Enforcement is deactivated
 
-If **Auto-clear Fusion cache** is enabled in Settings, AirGap will perform a final autosave and export, then attempt to delete the contents of Fusion's local cache directories. Some files may remain locked while Fusion is running — AirGap will report what succeeded and what needs manual cleanup. See the [ITAR Compliance Guide](docs/ITAR_COMPLIANCE_GUIDE.md) for details on cache clearing scope and manual procedures.
+If **Auto-clear Fusion cache** is enabled in Settings, AirGap will perform a final autosave, export all tracked unexported documents as `.f3d`/`.f3z` files to the session export directory, and then attempt to delete the contents of Fusion's local cache directories. Some cache files may remain locked while Fusion is running — AirGap will report what succeeded and what needs manual cleanup. See the [ITAR Compliance Guide](docs/ITAR_COMPLIANCE_GUIDE.md) for details on cache clearing scope and manual procedures.
 
 ### Enabling Auto-updates
 

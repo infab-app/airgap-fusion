@@ -75,7 +75,8 @@ else:
         / "Autodesk",
     ]
 
-FUSION_CACHE_SUBDIRS = ["W.Login", "DataCache"]
+FUSION_CACHE_SUBDIRS = ["W.login"]
+FUSION_CACHE_SENSITIVE_PATTERNS = ["*.f3d", "*.f3z"]
 
 # Update system
 CUSTOM_EVENT_UPDATE_CHECK = "AirGap_UpdateCheck"
