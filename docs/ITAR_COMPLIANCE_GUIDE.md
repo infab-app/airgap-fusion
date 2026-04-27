@@ -24,34 +24,78 @@ Even with AirGap active, Fusion 360 maintains a local cache of design data. When
 
 ### Cache Locations
 
+Fusion 360 stores cached data under user-specific directories (alphanumeric hashes) within its application support folder:
+
 **Windows:**
 ```
-%LocalAppData%\Autodesk\Autodesk Fusion 360\
+%LocalAppData%\Autodesk\Autodesk Fusion 360\<user_hash>\
 ```
-Specifically:
-- `W.Login\` — Contains cached design files
-- `DataCache\` — General data cache
 
 **macOS:**
 ```
-~/Library/Application Support/Autodesk/Autodesk Fusion 360/
+~/Library/Application Support/Autodesk/Autodesk Fusion 360/<user_hash>/
 ```
 For Mac App Store installations:
 ```
-~/Library/Containers/com.autodesk.mas.fusion360/Data/Library/Application Support/Autodesk/
+~/Library/Containers/com.autodesk.mas.fusion360/Data/Library/Application Support/Autodesk/<user_hash>/
 ```
 
-### Cache Clearing Procedure
+Within each user directory, the cache contains:
+- `W.login/` — Contains cached design files (`.f3d`, `.f3z`), structural metadata, and upload queues
+- `NsCloudBrowserCache*.dat` — Cloud browser cache (Data Panel file/project listings)
+- `OfflineCache.xml` — Offline mode state metadata (licensing, entitlements, timebomb)
+
+### What AirGap Clears vs. Preserves
+
+AirGap performs **targeted** cache clearing — only removing data that contains actual design content while preserving the metadata Fusion requires to remain in offline mode:
+
+| Item | Action | Reason |
+|------|--------|--------|
+| `.f3d` / `.f3z` files in `W.login` | **Deleted** | Contain actual 3D geometry, dimensions, and manufacturing data |
+| `CacheCommandQueue*.xml` in `W.login` | **Reset to empty** | Prevents queued design uploads from syncing when going online |
+| `NsCloudBrowserCache*.dat` | **Preserved** | Contains only Data Panel directory listings (project names, folder structure) — no design geometry. Fusion cannot enter offline mode without this file |
+| `OfflineCache.xml` | **Preserved** | Contains licensing/entitlement state and offline timebomb. Fusion cannot remain offline without this file |
+| `W.login` structural files (`M2/index.xml`, directory structure) | **Preserved** | Cache infrastructure Fusion needs to function offline |
+
+### Automatic Cache Clearing
+
+AirGap can automatically clear Fusion's local cache when ending an ITAR session. Enable this via **Settings > Auto-clear Fusion cache when ending sessions**. When enabled, AirGap will:
+
+1. Perform a final autosave of any active work
+2. Export all tracked unexported documents as `.f3d`/`.f3z` files to the session export directory
+3. Delete cached design files (`.f3d`, `.f3z`) from `W.login` and reset any pending upload queues
+
+AirGap automatically discovers all user directories within the Fusion cache base. Some files may not be deletable while Fusion is still running. AirGap will report which items succeeded and which failed. For any items that could not be deleted, follow the manual procedure below.
+
+### Manual Cache Clearing Procedure
 
 After ending an ITAR session and before allowing Fusion to go online:
 
 1. **Close Fusion 360 completely** (not just minimize)
 2. Navigate to the cache directories listed above
-3. Delete the contents of the `W.Login` and `DataCache` folders
-4. Restart Fusion 360
-5. Only then should you allow Fusion to go online
+3. Delete `.f3d` and `.f3z` files from the `W.login` folder in each user directory
+4. Do **not** delete `OfflineCache.xml`, `NsCloudBrowserCache*.dat`, or structural files in `W.login` — Fusion needs these to remain in offline mode
+5. Restart Fusion 360
+6. Only then should you allow Fusion to go online
 
 **WARNING:** Clearing the cache will remove ALL locally cached designs, not just ITAR-controlled ones. Ensure all work is exported before clearing.
+
+### Cache Clearing Scope and Limitations
+
+AirGap's cache clearing targets design files (`.f3d`, `.f3z`) within `W.login` in each user directory. The following are **intentionally preserved** to maintain offline mode:
+
+- **`NsCloudBrowserCache*.dat`** — Contains Data Panel listings (project names, file names, folder hierarchy) and **embedded design thumbnail images** (base64-encoded PNGs). Fusion requires this file to enter offline mode; without it, Fusion displays an error and forces an online connection. **Important:** These thumbnails are visual previews of designs and may be considered controlled data. However, they pose no upload risk — the browser cache is populated by downloading from Autodesk's servers, and there is no mechanism that uploads this cache back. The risk is limited to data at rest on the local machine. AirGap cannot selectively strip thumbnails from this file without breaking offline mode due to its proprietary binary format. Organizations where thumbnail data at rest is a concern should use full-disk encryption on ITAR workstations.
+- **`OfflineCache.xml`** — Contains licensing, entitlement, and offline timebomb data. Required for Fusion to validate its offline state on startup.
+- **`W.login` structural files** — Cache index, directory structure, and avatar files. Required for Fusion's cache subsystem to function.
+
+The following locations are **not** covered by AirGap's automatic clearing and may retain residual data:
+
+- **OS temp directories** (`%TEMP%` on Windows, `/tmp` on macOS) — may contain Fusion working files
+- **OS-level caches** — filesystem caches, virtual memory swap files, and hibernation files
+- **Fusion telemetry queue** — usage analytics data that may be queued for transmission (see Limitations below)
+- **Design thumbnails in browser cache** — embedded in `NsCloudBrowserCache*.dat` (see above); cannot be cleared without breaking offline mode
+
+For maximum data residue reduction, organizations should consider full-disk encryption on ITAR workstations and OS-level secure deletion tools as complementary measures.
 
 ---
 
@@ -165,6 +209,11 @@ Each entry contains:
 | EXPORT_IGES | INFO | IGES file exported |
 | EXPORT_ERROR | ERROR | Export operation failed |
 | DEACTIVATION_BLOCKED | WARNING | Session end blocked (unexported docs) |
+| CACHE_CLEAR_START | INFO | Automatic cache clear initiated |
+| CACHE_CLEAR_COMPLETE | INFO/WARNING | Cache clear finished (WARNING if partial) |
+| CACHE_CLEAR_SKIP | WARNING | Symlink encountered and skipped during cache clear |
+| CACHE_CLEAR_ERROR | ERROR | Cache clear operation failed |
+| CACHE_CLEAR_LARGE_DIR | WARNING | Cache directory contains >10,000 entries |
 | CRASH_RECOVERY | WARNING | Session restored after crash |
 | ADDIN_STOPPING | WARNING | Add-in stopping with active session |
 
@@ -176,4 +225,4 @@ Each entry contains:
 2. **Local cache persistence** — Fusion's cache may retain design data even after documents are closed. Manual cache clearing is required.
 3. **14-day license limit** — Fusion requires periodic internet access for licensing. This creates a window where data could sync if cache is not cleared.
 4. **No file-level ITAR tagging** — AirGap treats ALL documents during a session as ITAR-controlled. There is no per-file classification.
-5. **Application telemetry** — Fusion may send usage telemetry even in offline mode (though design data is not included).
+5. **Application telemetry** — Fusion may send usage telemetry even in offline mode (though design data is not included). Telemetry data may also be queued for transmission while offline and sent when the machine next goes online, regardless of whether the cache has been cleared. Cache clearing does not affect queued telemetry.

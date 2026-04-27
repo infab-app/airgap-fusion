@@ -68,6 +68,14 @@ class SettingsCommand(adsk.core.CommandCreatedEventHandler):
 
             _add_autosave_inputs(inputs, settings)
 
+            inputs.addBoolValueInput(
+                "autoClearCache",
+                "Auto-clear Fusion cache when ending sessions",
+                True,
+                "",
+                settings.auto_clear_cache,
+            )
+
             inputs.addTextBoxCommandInput(
                 "settingsInfo", "Settings File", str(config.SETTINGS_FILE), 1, True
             )
@@ -259,6 +267,8 @@ class SettingsExecuteHandler(adsk.core.CommandEventHandler):
                     pass
                 settings.autosave_directory = inputs.itemById("autosaveDir").value.strip()
 
+            settings.auto_clear_cache = inputs.itemById("autoClearCache").value
+
             settings.save()
 
             AuditLogger.instance().log(
@@ -271,7 +281,8 @@ class SettingsExecuteHandler(adsk.core.CommandEventHandler):
                 f"update_channel={settings.update_channel}, "
                 f"autosave={settings.autosave_enabled}, "
                 f"autosave_interval={settings.autosave_interval_minutes}m, "
-                f"autosave_max={settings.autosave_max_versions}",
+                f"autosave_max={settings.autosave_max_versions}, "
+                f"auto_clear_cache={settings.auto_clear_cache}",
             )
 
             app = adsk.core.Application.get()

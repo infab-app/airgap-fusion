@@ -6,7 +6,7 @@ import adsk.core
 from commands.start_session import get_enforcer, get_interceptor
 from lib.audit_logger import AuditLogger
 from lib.persistence import SessionPersistence
-from lib.session_manager import SessionManager, SessionState
+from lib.session_manager import SessionManager, SessionState, is_default_document
 from lib.ui_components import update_button_visibility
 
 _handlers = []
@@ -105,6 +105,19 @@ class StopSessionCommand(adsk.core.CommandCreatedEventHandler):
                 False,
             )
 
+            from lib.settings import Settings
+
+            if Settings.instance().auto_clear_cache:
+                inputs.addTextBoxCommandInput(
+                    "autoClearInfo",
+                    "",
+                    "AirGap will attempt to automatically clear Fusion's local cache "
+                    "after performing a final autosave. Some files may not be "
+                    "deletable while Fusion is running.",
+                    2,
+                    True,
+                )
+
             execute_handler = StopSessionExecuteHandler()
             cmd.execute.add(execute_handler)
             _handlers.append(execute_handler)
@@ -150,6 +163,71 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
             session = SessionManager.instance()
             logger = AuditLogger.instance()
 
+            from lib.settings import Settings
+
+            auto_clear = Settings.instance().auto_clear_cache
+            clear_result = None
+
+            if auto_clear:
+                try:
+                    from lib.autosave_manager import AutosaveManager
+
+                    autosave_mgr = AutosaveManager.instance()
+                    if autosave_mgr.is_active:
+                        logger.log(
+                            "CACHE_CLEAR_AUTOSAVE",
+                            "Performing final autosave before cache clear",
+                        )
+                        autosave_mgr.perform_autosave()
+                except Exception:
+                    logger.log(
+                        "CACHE_CLEAR_AUTOSAVE_FAILED",
+                        f"Final autosave before cache clear failed: {traceback.format_exc()}",
+                        "WARNING",
+                    )
+
+                from pathlib import Path
+
+                from lib.export_manager import LocalExportManager
+
+                for i in range(app.documents.count):
+                    try:
+                        doc = app.documents.item(i)
+                        if not doc or is_default_document(doc.name):
+                            continue
+                        doc_name = doc.name
+                        if doc_name not in session.tracked_documents:
+                            continue
+                        if doc_name in session.exported_documents:
+                            continue
+                        doc.activate()
+                        safe = "".join(c if c.isalnum() or c in "-_ " else "_" for c in doc_name)
+                        export_dir = Path(session.export_directory) / safe
+                        export_dir.mkdir(parents=True, exist_ok=True)
+                        has_xrefs = LocalExportManager.has_external_references()
+                        ext = ".f3z" if has_xrefs else ".f3d"
+                        filepath = str(export_dir / f"{safe}{ext}")
+                        ok = LocalExportManager.export_fusion_archive(filepath)
+                        if ok:
+                            session.mark_exported(doc_name)
+                            logger.log(
+                                "CACHE_CLEAR_EXPORT",
+                                f"Final export before cache clear: {filepath}",
+                            )
+                        else:
+                            logger.log(
+                                "CACHE_CLEAR_EXPORT_FAILED",
+                                f"Final export failed for {doc_name}",
+                                "WARNING",
+                            )
+                    except Exception:
+                        logger.log(
+                            "CACHE_CLEAR_EXPORT_FAILED",
+                            f"Final export before cache clear failed for document: "
+                            f"{traceback.format_exc()}",
+                            "WARNING",
+                        )
+
             if not session.transition_to(SessionState.DEACTIVATING):
                 ui.messageBox("Cannot stop session: invalid state transition.", "AirGap - Error")
                 return
@@ -180,6 +258,27 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
             else:
                 logger.log("SESSION_END", f"AirGap session ended cleanly.{duration_str}")
 
+            if auto_clear:
+                try:
+                    from lib.cache_clearer import clear_fusion_cache
+
+                    logger.log("CACHE_CLEAR_START", "Automatic cache clear initiated")
+                    clear_result = clear_fusion_cache()
+                    detail = clear_result.summary()
+                    if clear_result.errors:
+                        detail += f" | Errors: {clear_result.errors}"
+                    logger.log(
+                        "CACHE_CLEAR_COMPLETE",
+                        detail,
+                        "WARNING" if clear_result.files_failed > 0 else "INFO",
+                    )
+                except Exception:
+                    logger.log(
+                        "CACHE_CLEAR_ERROR",
+                        f"Cache clear failed: {traceback.format_exc()}",
+                        "ERROR",
+                    )
+
             try:
                 from lib.autosave_manager import AutosaveManager
 
@@ -197,6 +296,44 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
 
             update_button_visibility(SessionState.UNPROTECTED)
 
+            cache_msg = ""
+            if auto_clear and clear_result is not None:
+                if clear_result.success:
+                    cache_msg = (
+                        f"\n\nCache cleared successfully. "
+                        f"{clear_result.files_deleted} items removed."
+                    )
+                elif clear_result.partial or clear_result.files_failed > 0:
+                    failed_f3ds = []
+                    for err in clear_result.errors:
+                        path_part = err.split(":")[0].strip()
+                        if path_part.endswith(".f3d"):
+                            name = Path(path_part).name
+                            display = name.rsplit(".", 2)[0] if "." in name else name
+                            if display not in failed_f3ds:
+                                failed_f3ds.append(display)
+                    cache_msg = (
+                        f"\n\nCache partially cleared: {clear_result.files_deleted} items "
+                        f"removed, {clear_result.files_failed} items could not be deleted "
+                        f"(likely locked by Fusion)."
+                    )
+                    if failed_f3ds:
+                        cache_msg += (
+                            "\n\nCached designs that could not be removed:"
+                            "\n- " + "\n- ".join(failed_f3ds)
+                        )
+                    cache_msg += "\n\nConsider clearing manually after closing Fusion."
+                else:
+                    cache_msg = (
+                        "\n\nCache clear failed. Please clear the cache manually "
+                        "before going online. Refer to the compliance guide."
+                    )
+            elif auto_clear:
+                cache_msg = (
+                    "\n\nCache clear encountered an error. Please clear the cache "
+                    "manually before going online. Refer to the compliance guide."
+                )
+
             ui.messageBox(
                 "AIRGAP SESSION ENDED\n\n"
                 "Offline enforcement and save blocking have been deactivated.\n\n"
@@ -204,7 +341,7 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                 "manually go online when you are confident no export-controlled data "
                 "remains in Fusion's local cache.\n\n"
                 "Refer to the compliance guide for cache clearing "
-                "procedures.",
+                f"procedures.{cache_msg}",
                 "AirGap - Session Ended",
                 adsk.core.MessageBoxButtonTypes.OKButtonType,
                 adsk.core.MessageBoxIconTypes.InformationIconType,
