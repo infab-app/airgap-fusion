@@ -67,9 +67,7 @@ def _delete_sensitive_files_recursive(
     result.dirs_attempted.append(str(directory))
 
     try:
-        for dirpath, _dirnames, filenames in os.walk(
-            directory, topdown=True, followlinks=False
-        ):
+        for dirpath, _dirnames, filenames in os.walk(directory, topdown=True, followlinks=False):
             dp = Path(dirpath)
             for name in filenames:
                 if not any(fnmatch.fnmatch(name, pat) for pat in patterns):
@@ -94,14 +92,11 @@ def _delete_sensitive_files_recursive(
 
 
 _EMPTY_CACHE_QUEUE = (
-    '<?xml version="1.0" encoding="UTF-16" standalone="no" ?>\n'
-    "<CacheCommandUrns/>\n"
+    '<?xml version="1.0" encoding="UTF-16" standalone="no" ?>\n<CacheCommandUrns/>\n'
 ).encode("utf-16")
 
 
-def _reset_upload_queue(
-    wlogin_dir: Path, result: CacheClearResult, logger: "AuditLogger"
-):
+def _reset_upload_queue(wlogin_dir: Path, result: CacheClearResult, logger: "AuditLogger"):
     """Reset CacheCommandQueue XML files to empty, preventing queued uploads."""
     if not wlogin_dir.exists():
         return

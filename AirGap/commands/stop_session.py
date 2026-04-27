@@ -201,9 +201,7 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                         if doc_name in session.exported_documents:
                             continue
                         doc.activate()
-                        safe = "".join(
-                            c if c.isalnum() or c in "-_ " else "_" for c in doc_name
-                        )
+                        safe = "".join(c if c.isalnum() or c in "-_ " else "_" for c in doc_name)
                         export_dir = Path(session.export_directory) / safe
                         export_dir.mkdir(parents=True, exist_ok=True)
                         has_xrefs = LocalExportManager.has_external_references()
@@ -321,12 +319,10 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
                     )
                     if failed_f3ds:
                         cache_msg += (
-                            f"\n\nCached designs that could not be removed:"
-                            f"\n- " + "\n- ".join(failed_f3ds)
+                            "\n\nCached designs that could not be removed:"
+                            "\n- " + "\n- ".join(failed_f3ds)
                         )
-                    cache_msg += (
-                        "\n\nConsider clearing manually after closing Fusion."
-                    )
+                    cache_msg += "\n\nConsider clearing manually after closing Fusion."
                 else:
                     cache_msg = (
                         "\n\nCache clear failed. Please clear the cache manually "
