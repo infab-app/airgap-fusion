@@ -41,7 +41,17 @@ For Mac App Store installations:
 ~/Library/Containers/com.autodesk.mas.fusion360/Data/Library/Application Support/Autodesk/
 ```
 
-### Cache Clearing Procedure
+### Automatic Cache Clearing
+
+AirGap can automatically clear Fusion's local cache when ending an ITAR session. Enable this via **Settings > Auto-clear Fusion cache when ending sessions**. When enabled, AirGap will:
+
+1. Perform a final autosave of any active work
+2. Export the active document to the session export directory
+3. Delete the contents of `W.Login` and `DataCache` directories
+
+Some files may not be deletable while Fusion is still running. AirGap will report which items succeeded and which failed. For any items that could not be deleted, follow the manual procedure below.
+
+### Manual Cache Clearing Procedure
 
 After ending an ITAR session and before allowing Fusion to go online:
 
@@ -52,6 +62,17 @@ After ending an ITAR session and before allowing Fusion to go online:
 5. Only then should you allow Fusion to go online
 
 **WARNING:** Clearing the cache will remove ALL locally cached designs, not just ITAR-controlled ones. Ensure all work is exported before clearing.
+
+### Cache Clearing Scope and Limitations
+
+AirGap's cache clearing targets the `W.Login` and `DataCache` directories, which contain the primary design data cache. The following locations are **not** covered by AirGap's automatic clearing and may retain residual data:
+
+- **OS temp directories** (`%TEMP%` on Windows, `/tmp` on macOS) — may contain Fusion working files
+- **Fusion thumbnail caches** — preview images of designs
+- **OS-level caches** — filesystem caches, virtual memory swap files, and hibernation files
+- **Fusion telemetry queue** — usage analytics data that may be queued for transmission (see Limitations below)
+
+For maximum data residue reduction, organizations should consider full-disk encryption on ITAR workstations and OS-level secure deletion tools as complementary measures.
 
 ---
 
@@ -165,6 +186,11 @@ Each entry contains:
 | EXPORT_IGES | INFO | IGES file exported |
 | EXPORT_ERROR | ERROR | Export operation failed |
 | DEACTIVATION_BLOCKED | WARNING | Session end blocked (unexported docs) |
+| CACHE_CLEAR_START | INFO | Automatic cache clear initiated |
+| CACHE_CLEAR_COMPLETE | INFO/WARNING | Cache clear finished (WARNING if partial) |
+| CACHE_CLEAR_SKIP | WARNING | Symlink encountered and skipped during cache clear |
+| CACHE_CLEAR_ERROR | ERROR | Cache clear operation failed |
+| CACHE_CLEAR_LARGE_DIR | WARNING | Cache directory contains >10,000 entries |
 | CRASH_RECOVERY | WARNING | Session restored after crash |
 | ADDIN_STOPPING | WARNING | Add-in stopping with active session |
 
@@ -176,4 +202,4 @@ Each entry contains:
 2. **Local cache persistence** — Fusion's cache may retain design data even after documents are closed. Manual cache clearing is required.
 3. **14-day license limit** — Fusion requires periodic internet access for licensing. This creates a window where data could sync if cache is not cleared.
 4. **No file-level ITAR tagging** — AirGap treats ALL documents during a session as ITAR-controlled. There is no per-file classification.
-5. **Application telemetry** — Fusion may send usage telemetry even in offline mode (though design data is not included).
+5. **Application telemetry** — Fusion may send usage telemetry even in offline mode (though design data is not included). Telemetry data may also be queued for transmission while offline and sent when the machine next goes online, regardless of whether the cache has been cleared. Cache clearing does not affect queued telemetry.

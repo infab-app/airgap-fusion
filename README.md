@@ -24,6 +24,7 @@ UNPROTECTED → ACTIVATING → PROTECTED → DEACTIVATING → UNPROTECTED
 - **Local Export** — Supports F3D (Fusion Archive), STEP, STL, IGES, and SAT.
 - **Audit Logging** — Append-only JSONL logs record every session event (start, stop, exports, blocked saves, violations) for compliance auditing.
 - **Crash Recovery** — Session state is persisted to disk. If Fusion crashes during a session, AirGap forces offline mode on restart and offers to restore the session.
+- **Cache Clearing** — Optionally clears Fusion's local data cache (`W.Login`, `DataCache`) when ending a session to reduce the risk of cached design data syncing to Autodesk servers when going back online.
 - **Cross-Platform** — Single Python codebase for Windows and macOS.
 - **Auto-Update** - Optionally check for updates automatically on Fusion startup, notifying you of any new updates and can update itself after user confirmation
 
@@ -112,6 +113,8 @@ Once running, AirGap adds an **AirGap** tab to the toolbar in both the Design an
 4. Confirm both acknowledgment checkboxes
 5. Click **OK** — Enforcement is deactivated
 
+If **Auto-clear Fusion cache** is enabled in Settings, AirGap will perform a final autosave and export, then attempt to delete the contents of Fusion's local cache directories. Some files may remain locked while Fusion is running — AirGap will report what succeeded and what needs manual cleanup. See the [ITAR Compliance Guide](docs/ITAR_COMPLIANCE_GUIDE.md) for details on cache clearing scope and manual procedures.
+
 ### Enabling Auto-updates
 
 1. Click **AirGap Settings**
@@ -138,6 +141,7 @@ airgap-fusion/
 │   │   ├── ui_components.py   # Toolbar and button setup
 │   │   ├── persistence.py     # Crash recovery state
 │   │   ├── settings.py        # User settings management
+│   │   ├── cache_clearer.py   # Fusion cache clearing
 │   │   ├── github_client.py   # GitHub Releases API client
 │   │   └── updater.py         # Self-update orchestration
 │   ├── commands/
@@ -166,7 +170,7 @@ Each line is a JSON object with timestamp, session ID, event type, detail, sever
 
 ## Important Limitations
 
-- **Not a standalone ITAR solution.** AirGap adds application-level safeguards but is not a substitute for compliant network architecture, access controls, or organizational policies. Autodesk Fusion's local cache may retain design data that syncs when going back online. See the [ITAR Compliance Guide](docs/ITAR_COMPLIANCE_GUIDE.md) for cache clearing procedures.
+- **Not a standalone ITAR solution.** AirGap adds application-level safeguards but is not a substitute for compliant network architecture, access controls, or organizational policies. Autodesk Fusion's local cache may retain design data that syncs when going back online. AirGap can automatically clear the primary cache directories, but some files may remain locked while Fusion is running and other locations (temp files, OS caches) are not covered. See the [ITAR Compliance Guide](docs/ITAR_COMPLIANCE_GUIDE.md) for full details.
 - **14-day license window.** Fusion requires internet access for license validation every 14 days. Plan ITAR work within this window, then clear the cache before reconnecting.
 - **Session-level tracking.** All documents opened during a session are treated as ITAR-controlled. There is no per-file classification.
 

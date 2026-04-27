@@ -1,5 +1,4 @@
 import os
-import shutil
 from pathlib import Path
 
 import config
@@ -32,6 +31,55 @@ class CacheClearResult:
         )
 
 
+def _safe_rmtree(
+    root: Path, result: CacheClearResult, logger: "AuditLogger"
+) -> tuple[int, int]:
+    """Walk bottom-up and delete, checking every node for symlinks."""
+    deleted = 0
+    failed = 0
+    for dirpath, dirnames, filenames in os.walk(root, topdown=False, followlinks=False):
+        dp = Path(dirpath)
+        for name in filenames:
+            fp = dp / name
+            if fp.is_symlink():
+                result.errors.append(f"Skipped symlink: {fp}")
+                logger.log(
+                    "CACHE_CLEAR_SKIP",
+                    f"Skipped symlink during tree walk: {fp}",
+                    "WARNING",
+                )
+                continue
+            try:
+                fp.unlink()
+                deleted += 1
+            except OSError as e:
+                failed += 1
+                result.errors.append(f"{fp}: {e}")
+        for name in dirnames:
+            dp_child = dp / name
+            if dp_child.is_symlink():
+                result.errors.append(f"Skipped symlink: {dp_child}")
+                logger.log(
+                    "CACHE_CLEAR_SKIP",
+                    f"Skipped symlink during tree walk: {dp_child}",
+                    "WARNING",
+                )
+                continue
+            try:
+                dp_child.rmdir()
+                deleted += 1
+            except OSError as e:
+                failed += 1
+                result.errors.append(f"{dp_child}: {e}")
+    try:
+        root.rmdir()
+        deleted += 1
+    except OSError as e:
+        failed += 1
+        result.errors.append(f"{root}: {e}")
+    return deleted, failed
+
+
 def clear_fusion_cache() -> CacheClearResult:
     result = CacheClearResult()
     logger = AuditLogger.instance()
@@ -57,20 +105,7 @@ def clear_fusion_cache() -> CacheClearResult:
             dir_failed = 0
 
             try:
-                for entry in os.scandir(cache_dir):
-                    try:
-                        entry_path = Path(entry.path)
-                        if entry_path.is_symlink():
-                            result.errors.append(f"Skipped symlink: {entry_path}")
-                            continue
-                        if entry.is_dir(follow_symlinks=False):
-                            shutil.rmtree(entry_path)
-                        else:
-                            entry_path.unlink()
-                        dir_deleted += 1
-                    except OSError as e:
-                        dir_failed += 1
-                        result.errors.append(f"{entry.path}: {e}")
+                entries = list(os.scandir(cache_dir))
             except OSError as e:
                 result.errors.append(f"Cannot scan {cache_dir}: {e}")
                 logger.log(
@@ -79,6 +114,30 @@ def clear_fusion_cache() -> CacheClearResult:
                     "ERROR",
                 )
                 continue
+
+            if len(entries) > 10000:
+                logger.log(
+                    "CACHE_CLEAR_LARGE_DIR",
+                    f"Large cache directory ({len(entries)} top-level entries): {cache_dir}",
+                    "WARNING",
+                )
+
+            for entry in entries:
+                try:
+                    entry_path = Path(entry.path)
+                    if entry_path.is_symlink():
+                        result.errors.append(f"Skipped symlink: {entry_path}")
+                        continue
+                    if entry.is_dir(follow_symlinks=False):
+                        deleted, failed = _safe_rmtree(entry_path, result, logger)
+                        dir_deleted += deleted
+                        dir_failed += failed
+                    else:
+                        entry_path.unlink()
+                        dir_deleted += 1
+                except OSError as e:
+                    dir_failed += 1
+                    result.errors.append(f"{entry.path}: {e}")
 
             result.files_deleted += dir_deleted
             result.files_failed += dir_failed
