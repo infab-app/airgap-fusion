@@ -53,9 +53,7 @@ class DocumentSavingHandler(adsk.core.DocumentEventHandler):
                 export_dir_root = session.export_directory
                 if export_dir_root:
                     clean_name = re.sub(r"( v\d+)+$", "", doc_name).strip() or doc_name
-                    safe = "".join(
-                        c if c.isalnum() or c in "-_ " else "_" for c in clean_name
-                    )
+                    safe = "".join(c if c.isalnum() or c in "-_ " else "_" for c in clean_name)
                     export_dir = Path(export_dir_root) / safe
                     export_dir.mkdir(parents=True, exist_ok=True)
 
