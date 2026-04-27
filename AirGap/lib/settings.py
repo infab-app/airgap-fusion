@@ -10,6 +10,7 @@ _DEFAULTS = {
     "default_export_directory": str(config.DEFAULT_EXPORT_DIR),
     "update_channel": "stable",
     "auto_check_updates": False,
+    "log_directory": "",
     "version": 1,
 }
 
@@ -76,6 +77,14 @@ class Settings:
     @default_export_directory.setter
     def default_export_directory(self, value: str):
         self._data["default_export_directory"] = value
+
+    @property
+    def log_directory(self) -> str:
+        return self._data.get("log_directory", "")
+
+    @log_directory.setter
+    def log_directory(self, value: str):
+        self._data["log_directory"] = value
 
     @property
     def update_channel(self) -> str:
