@@ -172,6 +172,21 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
             SessionPersistence.save_state(session)
             update_button_visibility(SessionState.PROTECTED)
 
+            settings = Settings.instance()
+            autosave_info = ""
+            if settings.autosave_enabled:
+                from lib.autosave_manager import AutosaveManager
+
+                autosave_dir = settings.autosave_directory or export_dir
+                AutosaveManager.instance().activate(
+                    app,
+                    session_id,
+                    autosave_dir,
+                    settings.autosave_interval_minutes * 60,
+                    settings.autosave_max_versions,
+                )
+                autosave_info = f"- Autosave: every {settings.autosave_interval_minutes}m\n"
+
             if app.activeDocument:
                 doc_name = app.activeDocument.name
                 if not is_default_document(doc_name):
@@ -184,7 +199,8 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
                 f"Export Directory: {export_dir}\n\n"
                 "- Fusion is now OFFLINE\n"
                 "- Cloud saves are BLOCKED\n"
-                '- Use "Export Locally" to save files\n\n'
+                '- Use "Export Locally" to save files\n'
+                f"{autosave_info}\n"
                 "All documents opened during this session will be tracked.",
                 "AirGap - Session Started",
                 adsk.core.MessageBoxButtonTypes.OKButtonType,

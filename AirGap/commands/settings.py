@@ -65,6 +65,36 @@ class SettingsCommand(adsk.core.CommandCreatedEventHandler):
             channel_dropdown.listItems.add("Stable", settings.update_channel == "stable")
             channel_dropdown.listItems.add("Beta", settings.update_channel == "beta")
 
+            inputs.addBoolValueInput(
+                "autosaveEnabled",
+                "Enable autosave during sessions",
+                True,
+                "",
+                settings.autosave_enabled,
+            )
+
+            inputs.addStringValueInput(
+                "autosaveInterval",
+                "Autosave interval (minutes)",
+                str(settings.autosave_interval_minutes),
+            )
+
+            inputs.addStringValueInput(
+                "autosaveMaxVersions",
+                "Max autosave versions per document",
+                str(settings.autosave_max_versions),
+            )
+
+            inputs.addStringValueInput(
+                "autosaveDir",
+                "Autosave directory (blank for default)",
+                settings.autosave_directory,
+            )
+
+            inputs.addBoolValueInput(
+                "browseAutosaveDir", "Browse Autosave Dir...", False, "", False
+            )
+
             inputs.addTextBoxCommandInput(
                 "settingsInfo", "Settings File", str(config.SETTINGS_FILE), 1, True
             )
@@ -117,11 +147,28 @@ class SettingsInputChangedHandler(adsk.core.InputChangedEventHandler):
                     dir_input = inputs.itemById("logDir")
                     dir_input.value = folder_dlg.folder
 
+            elif changed_input.id == "browseAutosaveDir":
+                app = adsk.core.Application.get()
+                ui = app.userInterface
+                folder_dlg = ui.createFolderDialog()
+                folder_dlg.title = "Select Autosave Directory"
+                result = folder_dlg.showDialog()
+                if result == adsk.core.DialogResults.DialogOK:
+                    dir_input = inputs.itemById("autosaveDir")
+                    dir_input.value = folder_dlg.folder
+
             elif changed_input.id == "autoOffline":
                 auto_offline = inputs.itemById("autoOffline")
                 auto_session = inputs.itemById("autoSession")
                 if not auto_offline.value:
                     auto_session.value = False
+
+            elif changed_input.id == "autosaveEnabled":
+                enabled = inputs.itemById("autosaveEnabled").value
+                inputs.itemById("autosaveInterval").isEnabled = enabled
+                inputs.itemById("autosaveMaxVersions").isEnabled = enabled
+                inputs.itemById("autosaveDir").isEnabled = enabled
+                inputs.itemById("browseAutosaveDir").isEnabled = enabled
 
         except Exception:
             pass
@@ -142,6 +189,26 @@ class SettingsValidateHandler(adsk.core.ValidateInputsEventHandler):
             if not log_dir_input.value.strip():
                 args.areInputsValid = False
                 return
+
+            autosave_enabled = inputs.itemById("autosaveEnabled")
+            if autosave_enabled and autosave_enabled.value:
+                try:
+                    interval = int(inputs.itemById("autosaveInterval").value)
+                    if interval < 1 or interval > 60:
+                        args.areInputsValid = False
+                        return
+                except (ValueError, TypeError):
+                    args.areInputsValid = False
+                    return
+                try:
+                    max_ver = int(inputs.itemById("autosaveMaxVersions").value)
+                    if max_ver < 1 or max_ver > 20:
+                        args.areInputsValid = False
+                        return
+                except (ValueError, TypeError):
+                    args.areInputsValid = False
+                    return
+
             args.areInputsValid = True
         except Exception:
             args.areInputsValid = False
@@ -174,6 +241,22 @@ class SettingsExecuteHandler(adsk.core.CommandEventHandler):
             if selected:
                 settings.update_channel = selected.name.lower()
 
+            settings.autosave_enabled = inputs.itemById("autosaveEnabled").value
+            if settings.autosave_enabled:
+                try:
+                    settings.autosave_interval_minutes = int(
+                        inputs.itemById("autosaveInterval").value
+                    )
+                except (ValueError, TypeError):
+                    pass
+                try:
+                    settings.autosave_max_versions = int(
+                        inputs.itemById("autosaveMaxVersions").value
+                    )
+                except (ValueError, TypeError):
+                    pass
+                settings.autosave_directory = inputs.itemById("autosaveDir").value.strip()
+
             settings.save()
 
             AuditLogger.instance().log(
@@ -183,7 +266,10 @@ class SettingsExecuteHandler(adsk.core.CommandEventHandler):
                 f"export_dir={settings.default_export_directory}, "
                 f"log_dir={settings.log_directory or 'default'}, "
                 f"auto_check_updates={settings.auto_check_updates}, "
-                f"update_channel={settings.update_channel}",
+                f"update_channel={settings.update_channel}, "
+                f"autosave={settings.autosave_enabled}, "
+                f"autosave_interval={settings.autosave_interval_minutes}m, "
+                f"autosave_max={settings.autosave_max_versions}",
             )
 
             app = adsk.core.Application.get()

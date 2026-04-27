@@ -9,6 +9,7 @@ _handlers = []
 def register_commands(ui: adsk.core.UserInterface):
     from commands.check_update import CheckUpdateCommand
     from commands.export_local import ExportLocalCommand
+    from commands.restore_autosave import RestoreAutosaveCommand
     from commands.settings import SettingsCommand
     from commands.start_session import StartSessionCommand
     from commands.stop_session import StopSessionCommand
@@ -56,6 +57,13 @@ def register_commands(ui: adsk.core.UserInterface):
             "Check for a newer version of AirGap.",
             "",
             CheckUpdateCommand,
+        ),
+        (
+            config.CMD_RESTORE_AUTOSAVE,
+            "Restore from Autosave",
+            "Restore a design from a local autosave.",
+            "",
+            RestoreAutosaveCommand,
         ),
     ]
 

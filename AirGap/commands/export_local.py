@@ -30,13 +30,18 @@ class ExportLocalCommand(adsk.core.CommandCreatedEventHandler):
             session = SessionManager.instance()
             app = adsk.core.Application.get()
 
-            inputs.addStringValueInput("exportDir", "Export Directory", session.export_directory)
-
-            inputs.addBoolValueInput("browseDir", "Browse...", False, "", False)
-
             doc_name = ""
             if app.activeDocument:
                 doc_name = app.activeDocument.name
+
+            default_dir = session.export_directory
+            if doc_name:
+                safe = "".join(c if c.isalnum() or c in "-_ " else "_" for c in doc_name)
+                default_dir = str(Path(session.export_directory) / safe)
+
+            inputs.addStringValueInput("exportDir", "Export Directory", default_dir)
+
+            inputs.addBoolValueInput("browseDir", "Browse...", False, "", False)
             inputs.addTextBoxCommandInput("docName", "Active Document", doc_name, 1, True)
 
             components = LocalExportManager.get_components()

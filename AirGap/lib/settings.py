@@ -11,6 +11,10 @@ _DEFAULTS = {
     "update_channel": "stable",
     "auto_check_updates": False,
     "log_directory": "",
+    "autosave_enabled": True,
+    "autosave_interval_minutes": 10,
+    "autosave_max_versions": 3,
+    "autosave_directory": "",
     "version": 1,
 }
 
@@ -102,3 +106,35 @@ class Settings:
     @auto_check_updates.setter
     def auto_check_updates(self, value: bool):
         self._data["auto_check_updates"] = value
+
+    @property
+    def autosave_enabled(self) -> bool:
+        return bool(self._data.get("autosave_enabled", True))
+
+    @autosave_enabled.setter
+    def autosave_enabled(self, value: bool):
+        self._data["autosave_enabled"] = value
+
+    @property
+    def autosave_interval_minutes(self) -> int:
+        return max(1, min(60, int(self._data.get("autosave_interval_minutes", 10))))
+
+    @autosave_interval_minutes.setter
+    def autosave_interval_minutes(self, value: int):
+        self._data["autosave_interval_minutes"] = max(1, min(60, int(value)))
+
+    @property
+    def autosave_max_versions(self) -> int:
+        return max(1, min(20, int(self._data.get("autosave_max_versions", 3))))
+
+    @autosave_max_versions.setter
+    def autosave_max_versions(self, value: int):
+        self._data["autosave_max_versions"] = max(1, min(20, int(value)))
+
+    @property
+    def autosave_directory(self) -> str:
+        return self._data.get("autosave_directory", "")
+
+    @autosave_directory.setter
+    def autosave_directory(self, value: str):
+        self._data["autosave_directory"] = value

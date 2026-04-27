@@ -175,6 +175,13 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
             else:
                 logger.log("SESSION_END", f"AirGap session ended cleanly.{duration_str}")
 
+            try:
+                from lib.autosave_manager import AutosaveManager
+
+                AutosaveManager.instance().deactivate()
+            except Exception:
+                pass
+
             get_enforcer().deactivate()
             get_interceptor().deactivate()
 

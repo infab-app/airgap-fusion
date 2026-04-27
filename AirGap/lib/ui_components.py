@@ -7,7 +7,11 @@ import config
 from lib.audit_logger import AuditLogger
 from lib.session_manager import SessionManager, SessionState
 
-_VISIBLE_WHEN_PROTECTED = {config.CMD_STOP_SESSION, config.CMD_EXPORT_LOCAL}
+_VISIBLE_WHEN_PROTECTED = {
+    config.CMD_STOP_SESSION,
+    config.CMD_EXPORT_LOCAL,
+    config.CMD_RESTORE_AUTOSAVE,
+}
 _VISIBLE_WHEN_UNPROTECTED = {config.CMD_START_SESSION}
 
 _panels_created = []
@@ -60,6 +64,7 @@ def create_ui(app: adsk.core.Application):
             config.CMD_VIEW_LOG,
             config.CMD_SETTINGS,
             config.CMD_CHECK_UPDATE,
+            config.CMD_RESTORE_AUTOSAVE,
         ]
         for cmd_id in cmd_ids:
             ctrl = panel.controls.itemById(cmd_id)

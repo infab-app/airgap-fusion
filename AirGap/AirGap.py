@@ -155,6 +155,13 @@ def stop(context):
                 "WARNING",
             )
 
+        try:
+            from lib.autosave_manager import AutosaveManager
+
+            AutosaveManager.instance().deactivate()
+        except Exception:
+            pass
+
         enforcer = get_enforcer()
         if enforcer.is_active:
             enforcer.deactivate()
@@ -162,10 +169,13 @@ def stop(context):
         get_interceptor().deactivate()
 
         if _app:
+            import config as cfg
+
             for event_id in (
                 CUSTOM_EVENT_AUTO_START,
                 CUSTOM_EVENT_CRASH_RECOVERY,
                 CUSTOM_EVENT_UPDATE_CHECK,
+                cfg.CUSTOM_EVENT_AUTOSAVE,
             ):
                 try:
                     _app.unregisterCustomEvent(event_id)
@@ -386,6 +396,22 @@ class _CrashRecoveryCompleteHandler(adsk.core.CustomEventHandler):
             ui_components.update_button_visibility(SessionState.PROTECTED)
             SessionPersistence.save_state(session)
             logger.log("CRASH_RECOVERY", "Offline enforcement activated after Fusion startup")
+
+            settings = Settings.instance()
+            if settings.autosave_enabled:
+                try:
+                    from lib.autosave_manager import AutosaveManager
+
+                    autosave_dir = settings.autosave_directory or session.export_directory
+                    AutosaveManager.instance().activate(
+                        app,
+                        session.session_id,
+                        autosave_dir,
+                        settings.autosave_interval_minutes * 60,
+                        settings.autosave_max_versions,
+                    )
+                except Exception:
+                    pass
         except Exception:
             try:
                 app = adsk.core.Application.get()
@@ -429,6 +455,23 @@ def _activate_session(app, session, session_id, export_dir, start_time):
 
     SessionPersistence.save_state(session)
     ui_components.update_button_visibility(SessionState.PROTECTED)
+
+    settings = Settings.instance()
+    if settings.autosave_enabled:
+        try:
+            from lib.autosave_manager import AutosaveManager
+
+            autosave_dir = settings.autosave_directory or export_dir
+            AutosaveManager.instance().activate(
+                app,
+                session_id,
+                autosave_dir,
+                settings.autosave_interval_minutes * 60,
+                settings.autosave_max_versions,
+            )
+        except Exception:
+            pass
+
     return True, None
 
 
