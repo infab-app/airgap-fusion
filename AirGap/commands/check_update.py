@@ -2,6 +2,7 @@ import traceback
 
 import adsk.core
 
+from lib.audit_logger import AuditLogger
 from lib.session_manager import SessionManager
 from lib.settings import Settings
 from lib.updater import check_for_update, download_and_stage
@@ -21,8 +22,15 @@ class CheckUpdateCommand(adsk.core.CommandCreatedEventHandler):
             cmd.execute.add(handler)
             _handlers.append(handler)
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
-            app.userInterface.messageBox(f"Error creating update check:\n{traceback.format_exc()}")
+            app.userInterface.messageBox(
+                "An unexpected error occurred.\nCheck the audit log for details.",
+                "AirGap - Error",
+            )
 
 
 class _CheckUpdateExecuteHandler(adsk.core.CommandEventHandler):
@@ -121,7 +129,14 @@ class _CheckUpdateExecuteHandler(adsk.core.CommandEventHandler):
 
         except Exception:
             try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
+            try:
                 app = adsk.core.Application.get()
-                app.userInterface.messageBox(f"Update check error:\n{traceback.format_exc()}")
+                app.userInterface.messageBox(
+                    "An unexpected error occurred during update check.\nCheck the audit log for details.",
+                    "AirGap - Error",
+                )
             except Exception:
                 pass

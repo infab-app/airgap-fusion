@@ -4,6 +4,7 @@ import adsk.core
 
 import config
 from lib.audit_logger import AuditLogger
+from lib.path_validation import validate_safe_path
 from lib.settings import Settings
 
 _handlers = []
@@ -74,9 +75,14 @@ class SettingsCommand(adsk.core.CommandCreatedEventHandler):
             _register_handlers(cmd)
 
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
             app.userInterface.messageBox(
-                f"Error creating settings dialog:\n{traceback.format_exc()}"
+                "An unexpected error occurred.\nCheck the audit log for details.",
+                "AirGap - Error",
             )
 
 
@@ -171,8 +177,14 @@ class SettingsValidateHandler(adsk.core.ValidateInputsEventHandler):
             if not dir_input.value.strip():
                 args.areInputsValid = False
                 return
+            if validate_safe_path(dir_input.value.strip()) is None:
+                args.areInputsValid = False
+                return
             log_dir_input = inputs.itemById("logDir")
             if not log_dir_input.value.strip():
+                args.areInputsValid = False
+                return
+            if validate_safe_path(log_dir_input.value.strip()) is None:
                 args.areInputsValid = False
                 return
 
@@ -192,6 +204,10 @@ class SettingsValidateHandler(adsk.core.ValidateInputsEventHandler):
                         args.areInputsValid = False
                         return
                 except (ValueError, TypeError):
+                    args.areInputsValid = False
+                    return
+                autosave_dir = inputs.itemById("autosaveDir").value.strip()
+                if autosave_dir and validate_safe_path(autosave_dir) is None:
                     args.areInputsValid = False
                     return
 
@@ -268,5 +284,12 @@ class SettingsExecuteHandler(adsk.core.CommandEventHandler):
                 adsk.core.MessageBoxIconTypes.InformationIconType,
             )
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
-            app.userInterface.messageBox(f"Error saving settings:\n{traceback.format_exc()}")
+            app.userInterface.messageBox(
+                "An unexpected error occurred while saving settings.\nCheck the audit log for details.",
+                "AirGap - Error",
+            )

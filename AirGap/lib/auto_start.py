@@ -144,9 +144,14 @@ class _AutoStartHandler(adsk.core.CustomEventHandler):
             )
         except Exception:
             try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
+            try:
                 app = adsk.core.Application.get()
                 app.userInterface.messageBox(
-                    f"AirGap auto-start error:\n{traceback.format_exc()}", "AirGap - Error"
+                    "An unexpected error occurred during auto-start.\nCheck the audit log for details.",
+                    "AirGap - Error",
                 )
             except Exception:
                 pass

@@ -86,8 +86,15 @@ class ExportLocalCommand(adsk.core.CommandCreatedEventHandler):
             _handlers.append(input_changed_handler)
 
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
-            app.userInterface.messageBox(f"Error creating export dialog:\n{traceback.format_exc()}")
+            app.userInterface.messageBox(
+                "An unexpected error occurred.\nCheck the audit log for details.",
+                "AirGap - Error",
+            )
 
 
 class ExportInputChangedHandler(adsk.core.InputChangedEventHandler):
@@ -206,5 +213,12 @@ class ExportExecuteHandler(adsk.core.CommandEventHandler):
                 icon,
             )
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
-            app.userInterface.messageBox(f"Export error:\n{traceback.format_exc()}")
+            app.userInterface.messageBox(
+                "An unexpected error occurred during export.\nCheck the audit log for details.",
+                "AirGap - Error",
+            )

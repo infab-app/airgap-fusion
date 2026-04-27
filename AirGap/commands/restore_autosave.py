@@ -53,9 +53,14 @@ class RestoreAutosaveCommand(adsk.core.CommandCreatedEventHandler):
             _handlers.append(input_changed_handler)
 
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
             app.userInterface.messageBox(
-                f"Error creating restore dialog:\n{traceback.format_exc()}"
+                "An unexpected error occurred.\nCheck the audit log for details.",
+                "AirGap - Error",
             )
 
 
@@ -157,11 +162,21 @@ class RestoreExecuteHandler(adsk.core.CommandEventHandler):
                     adsk.core.MessageBoxIconTypes.WarningIconType,
                 )
                 if result != adsk.core.DialogResults.DialogYes:
+                    AuditLogger.instance().log(
+                        "AUTOSAVE_INTEGRITY_REJECTED",
+                        f"User declined to open unverified autosave: {filepath}",
+                    )
                     return
+                AuditLogger.instance().log(
+                    "AUTOSAVE_INTEGRITY_OVERRIDE",
+                    f"User chose to open unverified autosave: {filepath} "
+                    f"(expected checksum: {entry.get('file_checksum', 'none')})",
+                    "WARNING",
+                )
 
             app.documents.open(str(filepath))
 
-            verify_status = "verified" if verified else "CHECKSUM MISMATCH"
+            verify_status = "verified" if verified else "CHECKSUM MISMATCH (user override)"
             AuditLogger.instance().log(
                 "AUTOSAVE_RESTORED",
                 f"Restored autosave: {filepath} (integrity: {verify_status})",
@@ -176,5 +191,12 @@ class RestoreExecuteHandler(adsk.core.CommandEventHandler):
                 adsk.core.MessageBoxIconTypes.InformationIconType,
             )
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
-            app.userInterface.messageBox(f"Restore error:\n{traceback.format_exc()}")
+            app.userInterface.messageBox(
+                "An unexpected error occurred during restore.\nCheck the audit log for details.",
+                "AirGap - Error",
+            )

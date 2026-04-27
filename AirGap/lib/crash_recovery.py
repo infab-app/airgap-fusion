@@ -169,9 +169,13 @@ class _CrashRecoveryCompleteHandler(adsk.core.CustomEventHandler):
                 pass
         except Exception:
             try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
+            try:
                 app = adsk.core.Application.get()
                 app.userInterface.messageBox(
-                    f"AirGap crash recovery error:\n{traceback.format_exc()}",
+                    "An unexpected error occurred during crash recovery.\nCheck the audit log for details.",
                     "AirGap - Error",
                 )
             except Exception:

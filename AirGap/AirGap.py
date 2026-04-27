@@ -17,11 +17,13 @@ def _copy_dir_contents(src, dest, *, overwrite=False, skip_dotfiles=False):
     for item in src.iterdir():
         if skip_dotfiles and item.name.startswith("."):
             continue
+        if item.is_symlink():
+            continue
         target = dest / item.name
         if item.is_dir():
             if overwrite and target.exists():
                 shutil.rmtree(target)
-            shutil.copytree(item, target)
+            shutil.copytree(item, target, symlinks=False)
         else:
             shutil.copy2(item, target)
 
@@ -44,7 +46,27 @@ def _apply_pending_update():
         with open(pending_file, encoding="utf-8") as f:
             pending = json.load(f)
 
+        from lib.integrity import is_envelope, unwrap_and_verify
+
+        if is_envelope(pending):
+            payload = unwrap_and_verify(pending)
+            if payload is None:
+                pending_file.unlink(missing_ok=True)
+                return False
+            pending = payload
+        else:
+            pending_file.unlink(missing_ok=True)
+            return False
+
         staging_path = Path(pending["staging_path"])
+        staging_base = base_dir / "update_staging"
+        resolved_staging = staging_path.resolve()
+        if not resolved_staging.is_relative_to(staging_base.resolve()):
+            pending_file.unlink(missing_ok=True)
+            return False
+        if staging_path.is_symlink():
+            pending_file.unlink(missing_ok=True)
+            return False
         if not staging_path.exists():
             pending_file.unlink(missing_ok=True)
             return False
@@ -185,5 +207,12 @@ def stop(context):
         cleanup_update_check()
 
     except Exception:
+        try:
+            AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+        except Exception:
+            pass
         if _ui:
-            _ui.messageBox(f"AirGap error during shutdown:\n{traceback.format_exc()}")
+            _ui.messageBox(
+                "An unexpected error occurred during shutdown.\nCheck the audit log for details.",
+                "AirGap - Error",
+            )

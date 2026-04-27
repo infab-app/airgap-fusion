@@ -62,9 +62,14 @@ class StartSessionCommand(adsk.core.CommandCreatedEventHandler):
             _handlers.append(input_changed_handler)
 
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
             app.userInterface.messageBox(
-                f"Error creating start session dialog:\n{traceback.format_exc()}"
+                "An unexpected error occurred.\nCheck the audit log for details.",
+                "AirGap - Error",
             )
 
 
@@ -201,5 +206,12 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
                 adsk.core.MessageBoxIconTypes.InformationIconType,
             )
         except Exception:
+            try:
+                AuditLogger.instance().log("INTERNAL_ERROR", traceback.format_exc(), "ERROR")
+            except Exception:
+                pass
             app = adsk.core.Application.get()
-            app.userInterface.messageBox(f"Error starting session:\n{traceback.format_exc()}")
+            app.userInterface.messageBox(
+                "An unexpected error occurred while starting session.\nCheck the audit log for details.",
+                "AirGap - Error",
+            )

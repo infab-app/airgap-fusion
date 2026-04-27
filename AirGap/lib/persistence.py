@@ -1,10 +1,12 @@
 import datetime
 import json
 import os
+import uuid
 from pathlib import Path
 
 import config
 from lib.integrity import is_envelope, unwrap_and_verify, wrap_with_checksum
+from lib.path_validation import secure_file_permissions, secure_mkdir
 from lib.session_manager import SessionManager, SessionState
 
 
@@ -22,11 +24,12 @@ class SessionPersistence:
         }
         envelope = wrap_with_checksum(state_data)
         state_file = Path(config.SESSION_STATE_FILE)
-        state_file.parent.mkdir(parents=True, exist_ok=True)
-        tmp_file = state_file.with_suffix(".tmp")
+        secure_mkdir(state_file.parent)
+        tmp_file = state_file.with_suffix(f".tmp.{uuid.uuid4().hex[:8]}")
         with open(tmp_file, "w", encoding="utf-8") as f:
             json.dump(envelope, f, indent=2)
         tmp_file.replace(state_file)
+        secure_file_permissions(state_file)
 
     @staticmethod
     def load_state() -> dict | None:
