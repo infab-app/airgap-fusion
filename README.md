@@ -1,8 +1,8 @@
 # AirGap for Autodesk Fusion
 
-**An open-source Autodesk Fusion add-in by [Infab Softworks](https://infab.app)** that adds application-level safeguards for working with export-controlled design data. AirGap locks Fusion into offline mode, blocks cloud saves, and provides local-only file export, giving teams an additional layer of protection when using Fusion 360 in export controlled workflows.
+**An open-source Autodesk Fusion add-in by [Infab Softworks](https://infab.app)** that adds application-level safeguards for working with export-controlled design data. AirGap locks Fusion into offline mode, blocks cloud saves, and provides local-only file export, giving teams an additional layer of protection when using Autodesk Fusion in export controlled workflows.
 
-> **Disclaimer:** AirGap is designed to operate within an existing ITAR-compliant environment. It is not a substitute for compliant network architecture, access controls, or a formal compliance program. Autodesk Fusion 360 is not ITAR-compliant per Autodesk's own documentation. Consult your compliance officers before relying on this or any tool for export-controlled work.
+> **Disclaimer:** AirGap is designed to operate within an existing ITAR-compliant environment. It is not a substitute for compliant network architecture, access controls, or a formal compliance program. Autodesk Fusion is not ITAR-compliant per Autodesk's own documentation. Consult your compliance officers before relying on this or any tool for export-controlled work.
 
 ## How It Works
 
@@ -29,14 +29,14 @@ UNPROTECTED → ACTIVATING → PROTECTED → DEACTIVATING → UNPROTECTED
 
 ## Installation
 
-The `AirGap` folder in this repository is the complete add-in. Copy just this folder into Fusion 360's add-ins directory.
+The `AirGap` folder in this repository is the complete add-in. Copy just this folder into Autodesk Fusion's add-ins directory.
 
 **Option 1: Download from GitHub Releases (recommended)**
 
 1. Go to the [latest release](https://github.com/infab-app/airgap-fusion/releases/latest)
 2. Download `AirGap-v{version}.zip`
 3. Extract the zip — you'll get an `AirGap/` folder
-4. Drag-and-drop or copy the `AirGap` folder into Fusion 360's add-ins directory:
+4. Drag-and-drop or copy the `AirGap` folder into Autodesk Fusion's add-ins directory:
    - **Windows:** `%AppData%\Autodesk\Autodesk Fusion 360\API\AddIns\`
    - **macOS:** `~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/AddIns/`
 
@@ -63,9 +63,9 @@ cp -R airgap-fusion/AirGap ~/Library/Application\ Support/Autodesk/Autodesk\ Fus
 
 ### Updating
 
-AirGap can check for updates from within Fusion 360. Click **Check for Updates** in the AirGap toolbar tab to see if a newer version is available. You can also enable automatic update checks on startup in AirGap Settings.
+AirGap can check for updates from within Autodesk Fusion. Click **Check for Updates** in the AirGap toolbar tab to see if a newer version is available. You can also enable automatic update checks on startup in AirGap Settings.
 
-To update manually, delete the existing `AirGap` folder from your Fusion 360 add-ins directory and replace it with the `AirGap` folder from the [latest release](https://github.com/infab-app/airgap-fusion/releases/latest). Your settings and audit logs are stored separately (`~/.airgap/`) and will not be affected.
+To update manually, delete the existing `AirGap` folder from your Autodesk Fusion add-ins directory and replace it with the `AirGap` folder from the [latest release](https://github.com/infab-app/airgap-fusion/releases/latest). Your settings and audit logs are stored separately (`~/.airgap/`) and will not be affected.
 
 The resulting directory in your Add-Ins folder should look like:
 ```
@@ -79,8 +79,8 @@ AirGap/
 └── ...
 ```
 
-Then in Fusion 360:
-1. Open **Tools → Add-Ins** (or press `Shift+S`)
+Then in Autodesk Fusion:
+1. Open **Utilities → Add-Ins** (or press `Shift+S` by default)
 2. Go to the **Add-Ins** tab
 3. Click the green **+** icon and navigate to the `AirGap` folder (or it may appear automatically)
 4. Check **Run on Startup** (recommended)
@@ -125,7 +125,7 @@ Fusion remains in offline mode after the session ends. You must manually go onli
 
 ```
 airgap-fusion/
-├── AirGap/                    # Add-in folder (copy this into Fusion 360)
+├── AirGap/                    # Add-in folder (copy this into Autodesk Fusion)
 │   ├── AirGap.py              # Entry point
 │   ├── AirGap.manifest        # Add-in metadata
 │   ├── config.py              # Constants and paths
@@ -166,7 +166,7 @@ Each line is a JSON object with timestamp, session ID, event type, detail, sever
 
 ## Important Limitations
 
-- **Not a standalone ITAR solution.** AirGap adds application-level safeguards but is not a substitute for compliant network architecture, access controls, or organizational policies. Fusion 360's local cache may retain design data that syncs when going back online. See the [ITAR Compliance Guide](docs/ITAR_COMPLIANCE_GUIDE.md) for cache clearing procedures.
+- **Not a standalone ITAR solution.** AirGap adds application-level safeguards but is not a substitute for compliant network architecture, access controls, or organizational policies. Autodesk Fusion's local cache may retain design data that syncs when going back online. See the [ITAR Compliance Guide](docs/ITAR_COMPLIANCE_GUIDE.md) for cache clearing procedures.
 - **14-day license window.** Fusion requires internet access for license validation every 14 days. Plan ITAR work within this window, then clear the cache before reconnecting.
 - **Session-level tracking.** All documents opened during a session are treated as ITAR-controlled. There is no per-file classification.
 
