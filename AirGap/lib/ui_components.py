@@ -11,6 +11,7 @@ _VISIBLE_WHEN_PROTECTED = {
     config.CMD_STOP_SESSION,
     config.CMD_EXPORT_LOCAL,
     config.CMD_RESTORE_AUTOSAVE,
+    config.CMD_TIMER_STATUS,
 }
 _VISIBLE_WHEN_UNPROTECTED = {config.CMD_START_SESSION}
 
@@ -18,12 +19,15 @@ _panels_created = []
 _tabs_created = []
 
 
+_ALWAYS_PROMOTED_WHEN_PROTECTED = {config.CMD_TIMER_STATUS}
+
+
 def _apply_control_visibility(ctrl, cmd_id, is_protected, set_promoted_default=False):
     if cmd_id in _VISIBLE_WHEN_PROTECTED:
         ctrl.isVisible = is_protected
         ctrl.isPromoted = is_protected
         if set_promoted_default:
-            ctrl.isPromotedByDefault = False
+            ctrl.isPromotedByDefault = cmd_id in _ALWAYS_PROMOTED_WHEN_PROTECTED
     elif cmd_id in _VISIBLE_WHEN_UNPROTECTED:
         ctrl.isVisible = not is_protected
         ctrl.isPromoted = not is_protected
@@ -66,6 +70,7 @@ def create_ui(app: adsk.core.Application):
             config.CMD_SETTINGS,
             config.CMD_CHECK_UPDATE,
             config.CMD_RESTORE_AUTOSAVE,
+            config.CMD_TIMER_STATUS,
         ]
         for cmd_id in cmd_ids:
             ctrl = panel.controls.itemById(cmd_id)

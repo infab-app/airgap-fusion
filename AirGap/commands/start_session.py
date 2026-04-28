@@ -148,6 +148,11 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
             logger.start_session_log(session_id)
             logger.log("SESSION_START", f"AirGap session initiated. Export dir: {export_dir}")
 
+            if not app.isOffLine:
+                from lib.offline_state import OfflineState
+
+                OfflineState.instance().record_online_observation()
+
             if not _enforcer.activate(app):
                 logger.log("SESSION_ABORT", "Could not enable offline mode", "CRITICAL")
                 session.transition_to(SessionState.UNPROTECTED)
@@ -176,6 +181,10 @@ class StartSessionExecuteHandler(adsk.core.CommandEventHandler):
 
             SessionPersistence.save_state(session)
             update_button_visibility(SessionState.PROTECTED)
+
+            from lib.timer_display import TimerDisplay
+
+            TimerDisplay.instance().activate(app)
 
             from lib.autosave_manager import activate_if_enabled
 

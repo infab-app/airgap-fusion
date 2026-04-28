@@ -79,6 +79,13 @@ def _activate_session(app, session, session_id, export_dir, start_time):
     ui_components.update_button_visibility(SessionState.PROTECTED)
 
     try:
+        from lib.timer_display import TimerDisplay
+
+        TimerDisplay.instance().activate(app)
+    except Exception:
+        pass
+
+    try:
         from lib.autosave_manager import activate_if_enabled
 
         activate_if_enabled(app, session_id, export_dir)
@@ -102,6 +109,11 @@ class _AutoStartHandler(adsk.core.CustomEventHandler):
                 return
 
             settings = Settings.instance()
+
+            if not app.isOffLine:
+                from lib.offline_state import OfflineState
+
+                OfflineState.instance().record_online_observation()
 
             app.isOffLine = True
             AuditLogger.instance().log(

@@ -162,6 +162,13 @@ class _CrashRecoveryCompleteHandler(adsk.core.CustomEventHandler):
             logger.log("CRASH_RECOVERY", "Offline enforcement activated after Fusion startup")
 
             try:
+                from lib.timer_display import TimerDisplay
+
+                TimerDisplay.instance().activate(app)
+            except Exception:
+                pass
+
+            try:
                 from lib.autosave_manager import activate_if_enabled
 
                 activate_if_enabled(app, session.session_id, session.export_directory)

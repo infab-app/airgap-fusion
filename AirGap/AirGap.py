@@ -147,6 +147,11 @@ def run(context):
         if _settings.log_directory:
             AuditLogger.instance().set_log_dir(_settings.log_directory)
 
+        if not _app.isOffLine:
+            from lib.offline_state import OfflineState
+
+            OfflineState.instance().record_online_observation()
+
         restored = handle_crash_recovery(_app, _ui)
 
         ui_components.create_ui(_app)
@@ -178,6 +183,13 @@ def stop(context):
             from lib.autosave_manager import AutosaveManager
 
             AutosaveManager.instance().deactivate()
+        except Exception:
+            pass
+
+        try:
+            from lib.timer_display import TimerDisplay
+
+            TimerDisplay.instance().deactivate()
         except Exception:
             pass
 

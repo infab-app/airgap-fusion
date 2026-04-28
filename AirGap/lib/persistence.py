@@ -19,6 +19,7 @@ class SessionPersistence:
             "tracked_documents": list(session.tracked_documents),
             "exported_documents": list(session.exported_documents),
             "export_directory": session.export_directory,
+            "session_start_time": session.session_start_time,
             "timestamp": datetime.datetime.now().isoformat(),
             "pid": os.getpid(),
         }
@@ -87,3 +88,4 @@ class SessionPersistence:
         session._tracked_documents = set(state_data.get("tracked_documents", []))
         session._exported_documents = set(state_data.get("exported_documents", []))
         session._export_directory = state_data.get("export_directory", "")
+        session._session_start_time = state_data.get("session_start_time")
