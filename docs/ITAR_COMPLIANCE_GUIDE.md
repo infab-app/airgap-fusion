@@ -13,7 +13,7 @@ Organizations handling ITAR-controlled data should consult with their compliance
 1. **Forces Offline Mode** — Programmatically sets Fusion 360 to offline mode before any ITAR work begins. Monitors and re-enforces if toggled.
 2. **Blocks Cloud Saves** — Intercepts all save operations and cancels them. Users must use "Export Locally" instead.
 3. **Local-Only Export** — Provides export to .f3d, STEP, STL, IGES, and SAT formats directly to local or network-attached storage.
-4. **Audit Logging** — Records all session events in append-only JSONL log files for compliance auditing.
+4. **Audit Logging** — Records all session events in append-only JSONL log files for compliance auditing. Each entry is linked via a SHA-256 hash chain for tamper detection.
 5. **Crash Recovery** — If Fusion crashes during an ITAR session, AirGap forces offline mode on restart and offers to restore the session.
 
 ---
@@ -186,9 +186,14 @@ Each entry contains:
     "detail": "Cloud save blocked for: Housing_Assembly",
     "severity": "WARNING",
     "user": "blake.nazario",
-    "machine": "WORKSTATION-01"
+    "machine": "WORKSTATION-01",
+    "seq": 5,
+    "prev_hash": "a1b2c3...",
+    "entry_hash": "d4e5f6..."
 }
 ```
+
+The `seq`, `prev_hash`, and `entry_hash` fields form a hash chain. Each entry's hash is computed over its contents (including the previous entry's hash), creating a tamper-evident chain. Use the **Verify Audit Log** button in the AirGap toolbar to check a log file's integrity. Legacy entries written before hash chain support will be skipped during verification.
 
 ### Event Types Reference
 
@@ -216,6 +221,8 @@ Each entry contains:
 | CACHE_CLEAR_LARGE_DIR | WARNING | Cache directory contains >10,000 entries |
 | CRASH_RECOVERY | WARNING | Session restored after crash |
 | ADDIN_STOPPING | WARNING | Add-in stopping with active session |
+| LOG_VERIFIED | INFO | Audit log integrity check passed |
+| LOG_VERIFY_FAILED | WARNING | Audit log integrity check failed |
 
 ---
 
@@ -226,3 +233,4 @@ Each entry contains:
 3. **14-day license limit** — Fusion requires periodic internet access for licensing. This creates a window where data could sync if cache is not cleared.
 4. **No file-level ITAR tagging** — AirGap treats ALL documents during a session as ITAR-controlled. There is no per-file classification.
 5. **Application telemetry** — Fusion may send usage telemetry even in offline mode (though design data is not included). Telemetry data may also be queued for transmission while offline and sent when the machine next goes online, regardless of whether the cache has been cleared. Cache clearing does not affect queued telemetry.
+6. **Audit log integrity is not cryptographically secure** — The hash chain detects accidental corruption and casual tampering (e.g., someone editing a log file without understanding the chain structure). However, AirGap is an uncompiled Python plugin — anyone with access to the machine can read the source code, understand the hashing scheme, and rewrite a log with a valid chain. The integrity check is not a defense against a knowledgeable actor with local access.

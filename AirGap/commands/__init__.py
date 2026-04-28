@@ -13,6 +13,7 @@ def register_commands(ui: adsk.core.UserInterface):
     from commands.settings import SettingsCommand
     from commands.start_session import StartSessionCommand
     from commands.stop_session import StopSessionCommand
+    from commands.verify_log import VerifyLogCommand
     from commands.view_log import ViewLogCommand
 
     commands = [
@@ -43,6 +44,13 @@ def register_commands(ui: adsk.core.UserInterface):
             "Open the AirGap audit log.",
             "",
             ViewLogCommand,
+        ),
+        (
+            config.CMD_VERIFY_LOG,
+            "Verify Audit Log",
+            "Verify the integrity of the audit log hash chain.",
+            "",
+            VerifyLogCommand,
         ),
         (
             config.CMD_SETTINGS,
