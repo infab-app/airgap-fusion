@@ -37,7 +37,7 @@ A beta pre-release is created automatically every time a pull request is merged 
 
 **What happens on merge:**
 
-1. CI checks run (lint, syntax, format)
+1. CI checks run (lint, syntax, format, unit tests)
 2. The next beta version is computed from existing git tags:
    - If the stable version is `1.0.3`, the next beta is `1.0.4-beta.1`
    - Subsequent merges produce `1.0.4-beta.2`, `1.0.4-beta.3`, etc.
@@ -88,7 +88,7 @@ Every release (beta and stable) publishes:
 | `AirGap-v{version}.zip` | The complete add-in folder, ready to extract and install |
 | `SHA256SUMS` | SHA-256 checksum for verifying download integrity |
 
-The zip contains the `AirGap/` directory. Users extract it and copy to their Fusion 360 Add-Ins directory.
+The zip contains the `AirGap/` directory. Users extract it and copy to their Fusion Add-Ins directory.
 
 ## Self-Update Mechanism
 
@@ -98,15 +98,20 @@ AirGap includes a built-in update checker that queries GitHub Releases:
 - **Automatic check:** Opt-in setting to check on Fusion startup (off by default)
 - **Update channel:** Users choose between "Stable" and "Beta" in settings
 
-When an update is found, the user can download and stage it. The update is applied the next time Fusion 360 restarts. Updates are never checked or downloaded during an active AirGap session.
+When an update is found, the user can download and stage it. The update is applied the next time Fusion restarts. Updates are never checked or downloaded during an active AirGap session.
 
 ## CI Workflows Summary
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
+| `tests.yml` | Pull request, push to `main` | Unit tests on Python 3.10, 3.12, and 3.14 |
 | `lint.yml` | Pull request | Ruff lint and format checks |
 | `syntax-check.yml` | Pull request | Python compilation check |
 | `pr-checks.yml` | Pull request | JSON validation, version consistency, no .pyc files |
 | `codeql.yml` | Pull request, push, weekly | Security analysis |
 | `auto-release-beta.yml` | PR merged to `main` | Auto-compute beta version and publish pre-release |
 | `release.yml` | Manual (workflow_dispatch) | Bump to specified version and publish stable release |
+
+## Test Requirements
+
+All unit tests must pass before a PR can be merged. Tests validate core logic (state machine, integrity checksums, path validation, settings, persistence, version comparison, audit log hash chain) without requiring the Fusion runtime. See [UNIT-TESTS.md](UNIT-TESTS.md) for details on test structure and coverage.

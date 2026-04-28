@@ -22,6 +22,7 @@ ignore = [
 "AirGap/AirGap.py" = ["F401", "E402"]  # E402: sys.path must be set before local imports
 "AirGap/commands/export_local.py" = ["F401"]
 "AirGap/lib/ui_components.py" = ["F401"]
+"tests/conftest.py" = ["UP036"]  # version guard needed for clear error on Python < 3.10
 
 [lint.isort]
 known-third-party = ["adsk"]
