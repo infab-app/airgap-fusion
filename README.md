@@ -22,7 +22,7 @@ UNPROTECTED → ACTIVATING → PROTECTED → DEACTIVATING → UNPROTECTED
 - **Offline Enforcement** — Programmatically sets `app.isOffLine = True` and monitors via event handlers and a polling thread. If someone toggles Fusion back online, AirGap immediately re-enforces offline mode.
 - **Cloud Save Blocking** — Intercepts save operations via the `documentSaving` event and cancels them with a warning directing the user to export locally.
 - **Local Export** — Supports F3D (Fusion Archive), STEP, STL, IGES, and SAT.
-- **Audit Logging** — Append-only JSONL logs record every session event (start, stop, exports, blocked saves, violations) for compliance auditing.
+- **Audit Logging** — Append-only JSONL logs record every session event (start, stop, exports, blocked saves, violations) for compliance auditing. Each entry is linked via a SHA-256 hash chain for tamper detection, verifiable from the toolbar.
 - **Crash Recovery** — Session state is persisted to disk. If Fusion crashes during a session, AirGap forces offline mode on restart and offers to restore the session.
 - **Cache Clearing** — Optionally clears cached design files (`.f3d`, `.f3z`) and resets pending upload queues when ending a session to reduce the risk of cached design data syncing to Autodesk servers when going back online. Offline mode metadata is preserved so Fusion can remain offline after clearing.
 - **Cross-Platform** — Single Python codebase for Windows and macOS.
@@ -150,6 +150,7 @@ airgap-fusion/
 │   │   ├── export_local.py    # Export dialog command
 │   │   ├── check_update.py    # Check for updates command
 │   │   ├── view_log.py        # Open audit log
+│   │   ├── verify_log.py     # Verify audit log integrity
 │   │   └── settings.py        # Settings dialog command
 │   └── resources/             # Toolbar icons (16x16 and 32x32 PNG)
 ├── docs/                      # Documentation
@@ -166,7 +167,7 @@ Logs are stored as JSONL files at:
 - **Windows:** `%APPDATA%\.airgap\logs\`
 - **macOS:** `~/.airgap/logs/`
 
-Each line is a JSON object with timestamp, session ID, event type, detail, severity, user, and machine name. See [ITAR Compliance Guide](docs/ITAR_COMPLIANCE_GUIDE.md) for the full event type reference.
+Each line is a JSON object with timestamp, session ID, event type, detail, severity, user, and machine name. Entries are linked by a SHA-256 hash chain — click **Verify Audit Log** in the AirGap toolbar to check the current log for tampering or corruption. See [ITAR Compliance Guide](docs/ITAR_COMPLIANCE_GUIDE.md) for the full event type reference.
 
 ## Important Limitations
 
