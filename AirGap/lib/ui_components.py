@@ -62,6 +62,7 @@ def create_ui(app: adsk.core.Application):
             config.CMD_STOP_SESSION,
             config.CMD_EXPORT_LOCAL,
             config.CMD_VIEW_LOG,
+            config.CMD_VERIFY_LOG,
             config.CMD_SETTINGS,
             config.CMD_CHECK_UPDATE,
             config.CMD_RESTORE_AUTOSAVE,

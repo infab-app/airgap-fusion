@@ -16,6 +16,7 @@ CMD_VIEW_LOG = "airgap_view_log"
 CMD_SETTINGS = "airgap_settings"
 CMD_CHECK_UPDATE = "airgap_check_update"
 CMD_RESTORE_AUTOSAVE = "airgap_restore_autosave"
+CMD_VERIFY_LOG = "airgap_verify_log"
 
 # Toolbar IDs
 TOOLBAR_TAB_ID = "AirGapTab"
