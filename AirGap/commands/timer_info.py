@@ -4,6 +4,7 @@ import adsk.core
 
 from lib.offline_state import OfflineState
 from lib.session_manager import SessionManager
+from lib.timer_display import format_session_elapsed
 
 _handlers = []
 
@@ -36,18 +37,14 @@ class _TimerInfoExecuteHandler(adsk.core.CommandEventHandler):
             start_iso = session.session_start_time
             if start_iso:
                 try:
-                    start = datetime.datetime.fromisoformat(start_iso)
-                    started_str = start.strftime("%Y-%m-%d %H:%M:%S")
-                    delta = datetime.datetime.now() - start
-                    hours, remainder = divmod(int(delta.total_seconds()), 3600)
-                    minutes, seconds = divmod(remainder, 60)
-                    duration_str = f"{hours}h {minutes}m {seconds}s"
+                    started_str = datetime.datetime.fromisoformat(start_iso).strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
                 except (ValueError, TypeError):
                     started_str = "Unknown"
-                    duration_str = "Unknown"
             else:
                 started_str = "Unknown"
-                duration_str = "Unknown"
+            duration_str = format_session_elapsed(start_iso, include_seconds=True)
 
             last_online = offline_state.last_online_time
             if last_online:

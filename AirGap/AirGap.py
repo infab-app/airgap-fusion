@@ -205,6 +205,7 @@ def stop(context):
                 config.CUSTOM_EVENT_CRASH_RECOVERY,
                 config.CUSTOM_EVENT_UPDATE_CHECK,
                 config.CUSTOM_EVENT_AUTOSAVE,
+                config.CUSTOM_EVENT_TIMER_TICK,
             ):
                 try:
                     _app.unregisterCustomEvent(event_id)

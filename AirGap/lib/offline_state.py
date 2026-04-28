@@ -29,6 +29,15 @@ class OfflineState:
     def record_online_observation(self):
         self._last_online_time = datetime.datetime.now().isoformat()
         self._save()
+        try:
+            from lib.audit_logger import AuditLogger
+
+            AuditLogger.instance().log(
+                "ONLINE_OBSERVATION",
+                "Fusion observed online; offline license countdown baseline updated",
+            )
+        except Exception:
+            pass
 
     def days_remaining(self) -> float | None:
         if not self._last_online_time:
@@ -50,6 +59,16 @@ class OfflineState:
             if is_envelope(raw):
                 payload = unwrap_and_verify(raw)
                 if payload is None:
+                    try:
+                        from lib.audit_logger import AuditLogger
+
+                        AuditLogger.instance().log(
+                            "INTEGRITY_VIOLATION",
+                            "Offline state file failed checksum verification; file rejected",
+                            "CRITICAL",
+                        )
+                    except Exception:
+                        pass
                     return
             else:
                 payload = raw
