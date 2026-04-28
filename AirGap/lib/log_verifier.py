@@ -36,12 +36,11 @@ def _verify_entry(entry, line_num, expected_prev, expected_seq, chain_started):
         )
         return error, expected_prev, expected_seq, chain_started, False, start_hash
 
-    if "seq" in entry and expected_seq is not None:
-        if entry["seq"] != expected_seq:
-            error = (
-                f"Sequence gap at line {line_num}: expected seq {expected_seq}, got {entry['seq']}"
-            )
-            return error, expected_prev, expected_seq, chain_started, False, start_hash
+    if "seq" in entry and expected_seq is not None and entry["seq"] != expected_seq:
+        error = (
+            f"Sequence gap at line {line_num}: expected seq {expected_seq}, got {entry['seq']}"
+        )
+        return error, expected_prev, expected_seq, chain_started, False, start_hash
 
     stored_hash = entry.pop("entry_hash")
     recomputed = _compute_entry_hash(entry)
