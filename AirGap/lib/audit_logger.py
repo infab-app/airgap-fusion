@@ -1,6 +1,7 @@
 import datetime
 import json
 import platform
+import threading
 from pathlib import Path
 
 import adsk.core
@@ -52,6 +53,7 @@ class AuditLogger:
         self._prev_hash = GENESIS_HASH
         self._seq = 0
         self._dropped_entries = 0
+        self._lock = threading.Lock()
 
     @classmethod
     def instance(cls):
@@ -84,36 +86,37 @@ class AuditLogger:
         self._session_id = None
 
     def log(self, event_type: str, detail: str, severity: str = "INFO"):
-        entry = {
-            "timestamp": datetime.datetime.now().isoformat(),
-            "session_id": self._session_id or "no_session",
-            "event_type": event_type,
-            "detail": detail,
-            "severity": severity,
-            "user": self._get_user(),
-            "machine": platform.node(),
-            "seq": self._seq,
-            "prev_hash": self._prev_hash,
-        }
-        entry["entry_hash"] = _compute_entry_hash(entry)
-        self._prev_hash = entry["entry_hash"]
-        self._seq += 1
+        with self._lock:
+            entry = {
+                "timestamp": datetime.datetime.now().isoformat(),
+                "session_id": self._session_id or "no_session",
+                "event_type": event_type,
+                "detail": detail,
+                "severity": severity,
+                "user": self._get_user(),
+                "machine": platform.node(),
+                "seq": self._seq,
+                "prev_hash": self._prev_hash,
+            }
+            entry["entry_hash"] = _compute_entry_hash(entry)
+            self._prev_hash = entry["entry_hash"]
+            self._seq += 1
 
-        log_file = self._current_log_file
-        if log_file is None:
+            log_file = self._current_log_file
+            if log_file is None:
+                try:
+                    secure_mkdir(self._log_dir)
+                except OSError:
+                    self._log_dir = Path(config.AUDIT_LOG_DIR)
+                    secure_mkdir(self._log_dir)
+                log_file = self._log_dir / "airgap_unsessioned.jsonl"
+
             try:
-                secure_mkdir(self._log_dir)
+                with open(log_file, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(entry) + "\n")
+                secure_file_permissions(log_file)
             except OSError:
-                self._log_dir = Path(config.AUDIT_LOG_DIR)
-                secure_mkdir(self._log_dir)
-            log_file = self._log_dir / "airgap_unsessioned.jsonl"
-
-        try:
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(entry) + "\n")
-            secure_file_permissions(log_file)
-        except OSError:
-            self._dropped_entries += 1
+                self._dropped_entries += 1
 
     def get_current_log_path(self):
         return self._current_log_file
