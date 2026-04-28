@@ -6,8 +6,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import conftest  # noqa: F401
-
 from lib.path_validation import (
     secure_file_permissions,
     secure_mkdir,

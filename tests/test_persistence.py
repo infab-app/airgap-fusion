@@ -5,8 +5,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import conftest  # noqa: F401
-
 import config
 from lib.persistence import SessionPersistence
 from lib.session_manager import SessionManager, SessionState

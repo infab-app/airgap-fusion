@@ -4,8 +4,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import conftest  # noqa: F401 — triggers adsk mock and sys.path setup
-
 from lib.integrity import (
     compute_checksum,
     file_checksum,

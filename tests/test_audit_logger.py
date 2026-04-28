@@ -5,8 +5,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import conftest  # noqa: F401
-
 import config
 from lib.audit_logger import GENESIS_HASH, AuditLogger, _compute_entry_hash, _read_last_entry_meta
 from lib.log_verifier import verify_log

@@ -2,8 +2,6 @@
 
 import unittest
 
-import conftest  # noqa: F401
-
 from lib.session_manager import SessionManager, SessionState, is_default_document
 
 

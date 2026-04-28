@@ -2,8 +2,6 @@
 
 import unittest
 
-import conftest  # noqa: F401
-
 from lib.updater import is_newer, parse_version
 
 

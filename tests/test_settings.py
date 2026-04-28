@@ -6,8 +6,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import conftest  # noqa: F401
-
 import config
 from lib.integrity import wrap_with_checksum
 from lib.settings import Settings
