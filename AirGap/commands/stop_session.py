@@ -286,6 +286,13 @@ class StopSessionExecuteHandler(adsk.core.CommandEventHandler):
             except Exception:
                 pass
 
+            try:
+                from lib.timer_display import TimerDisplay
+
+                TimerDisplay.instance().deactivate()
+            except Exception:
+                pass
+
             get_enforcer().deactivate()
             get_interceptor().deactivate()
 

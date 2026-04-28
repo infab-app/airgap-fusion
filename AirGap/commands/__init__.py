@@ -13,6 +13,7 @@ def register_commands(ui: adsk.core.UserInterface):
     from commands.settings import SettingsCommand
     from commands.start_session import StartSessionCommand
     from commands.stop_session import StopSessionCommand
+    from commands.timer_info import TimerInfoCommand
     from commands.verify_log import VerifyLogCommand
     from commands.view_log import ViewLogCommand
 
@@ -72,6 +73,13 @@ def register_commands(ui: adsk.core.UserInterface):
             "Restore a design from a local autosave.",
             "",
             RestoreAutosaveCommand,
+        ),
+        (
+            config.CMD_TIMER_STATUS,
+            "--",
+            "Session time and offline countdown. Click for details.",
+            "",
+            TimerInfoCommand,
         ),
     ]
 

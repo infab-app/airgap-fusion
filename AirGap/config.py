@@ -41,6 +41,12 @@ DEFAULT_AUTOSAVE_MAX_VERSIONS = 3
 AUTOSAVE_SUBDIR = ".airgap_autosave"
 AUTOSAVE_CONSECUTIVE_FAILURE_LIMIT = 3
 
+# Timer display
+CMD_TIMER_STATUS = "airgap_timer_status"
+CUSTOM_EVENT_TIMER_TICK = "AirGap_TimerTick"
+TIMER_TICK_INTERVAL = 60
+FUSION_OFFLINE_LICENSE_DAYS = 14
+
 # Custom events for startup subsystems
 CUSTOM_EVENT_AUTO_START = "AirGap_AutoStart"
 CUSTOM_EVENT_CRASH_RECOVERY = "AirGap_CrashRecoveryComplete"
@@ -63,6 +69,7 @@ DEFAULT_EXPORT_DIR = Path.home() / "AirGap_Exports"
 AUDIT_LOG_DIR = _BASE_DIR / "logs"
 SESSION_STATE_FILE = _BASE_DIR / "session_state.json"
 SETTINGS_FILE = _BASE_DIR / "settings.json"
+OFFLINE_STATE_FILE = _BASE_DIR / "offline_state.json"
 
 # Fusion 360 cache base directories
 if sys.platform == "win32":

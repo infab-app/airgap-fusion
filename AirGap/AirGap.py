@@ -147,6 +147,11 @@ def run(context):
         if _settings.log_directory:
             AuditLogger.instance().set_log_dir(_settings.log_directory)
 
+        if not _app.isOffLine:
+            from lib.offline_state import OfflineState
+
+            OfflineState.instance().record_online_observation()
+
         restored = handle_crash_recovery(_app, _ui)
 
         ui_components.create_ui(_app)
@@ -181,6 +186,13 @@ def stop(context):
         except Exception:
             pass
 
+        try:
+            from lib.timer_display import TimerDisplay
+
+            TimerDisplay.instance().deactivate()
+        except Exception:
+            pass
+
         enforcer = get_enforcer()
         if enforcer.is_active:
             enforcer.deactivate()
@@ -193,6 +205,7 @@ def stop(context):
                 config.CUSTOM_EVENT_CRASH_RECOVERY,
                 config.CUSTOM_EVENT_UPDATE_CHECK,
                 config.CUSTOM_EVENT_AUTOSAVE,
+                config.CUSTOM_EVENT_TIMER_TICK,
             ):
                 try:
                     _app.unregisterCustomEvent(event_id)
