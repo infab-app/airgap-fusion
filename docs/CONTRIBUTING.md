@@ -11,7 +11,7 @@ Thanks for your interest in contributing to AirGap. This guide covers how to set
    git pull origin main
    git checkout -b feature/your-branch-name
    ```
-3. Copy the add-in into Fusion 360's add-ins directory for testing (see [README](../README.md#installation))
+3. Copy the add-in into Fusion's add-ins directory for testing (see [README](../README.md#installation))
 
 ## Branch Naming
 
@@ -34,7 +34,7 @@ All branches should be created from `main` and use one of these prefixes:
 
 ## Development Environment
 
-AirGap runs inside Fusion 360's embedded Python runtime. There are no external pip dependencies, only the standard library and the Fusion 360 SDK (`adsk.core`, `adsk.fusion`, `adsk.cam`).
+AirGap runs inside Fusion's embedded Python runtime. There are no external pip dependencies, only the standard library and the Fusion SDK (`adsk.core`, `adsk.fusion`, `adsk.cam`).
 
 ### Linting and Formatting
 
@@ -60,8 +60,8 @@ ruff check --fix .
 
 **If `ruff` is not found in your PATH**, you can run it as a Python module instead:
 ```
-python3 -m ruff check .
-python3 -m ruff format .
+python -m ruff check .
+python -m ruff format .
 ```
 This is common on macOS when `pip install` places binaries in a directory not on your shell's PATH.
 
@@ -71,7 +71,7 @@ If you use VS Code, install the [Ruff extension](https://marketplace.visualstudi
 
 ## Project Structure
 
-The repository separates the add-in from development tooling. The `AirGap/` folder is the complete Fusion 360 add-in that users copy into their Add-Ins directory. All add-in code, resources, and configuration must live inside `AirGap/` so that users can install it by dragging a single folder.
+The repository separates the add-in from development tooling. The `AirGap/` folder is the complete Fusion add-in that users copy into their Add-Ins directory. All add-in code, resources, and configuration must live inside `AirGap/` so that users can install it by dragging a single folder.
 
 ```
 airgap-fusion/
@@ -99,7 +99,7 @@ airgap-fusion/
 │   │   ├── view_log.py
 │   │   └── settings.py
 │   └── resources/           # Toolbar icons
-├── tests/                   # Unit tests (run outside Fusion 360)
+├── tests/                   # Unit tests (run outside Fusion)
 ├── docs/                    # Documentation (not included in the add-in)
 ├── .github/workflows/       # CI and release workflows
 └── ruff.toml                # Linter configuration
@@ -144,7 +144,7 @@ All checks must pass before a PR can be merged.
 
 ### Automated Unit Tests
 
-AirGap includes a test suite for core logic modules that runs outside of Fusion 360. Tests use only `unittest` (standard library) and require **Python 3.10+**.
+AirGap includes a test suite for core logic modules that runs outside of Fusion. Tests use only `unittest` (standard library, no dependencies) and require **Python 3.10+** or higher.
 
 **Run all tests:**
 ```
@@ -165,11 +165,11 @@ Tests cover: state machine transitions, integrity checksums, path validation, se
 
 All tests must pass before a PR can be merged. The `Tests` CI workflow runs automatically on every pull request.
 
-### Manual Testing in Fusion 360
+### Manual Testing in Fusion
 
-Modules that interact directly with the Fusion 360 API (save interceptor, offline enforcer, export manager, command handlers) cannot be unit tested outside the runtime. For changes to these modules, manually test in Fusion 360 before submitting a PR:
+Modules that interact directly with the Fusion API (save interceptor, offline enforcer, export manager, command handlers) cannot be unit tested outside the runtime. For changes to these modules, manually test in Fusion before submitting a PR:
 
-1. Load the modified add-in in Fusion 360
+1. Load the modified add-in in Fusion
 2. Start and stop an AirGap session
 3. Verify your change works as expected
 4. Check the audit log for any unexpected entries
@@ -181,7 +181,7 @@ Open a GitHub issue with:
 
 - What you expected to happen
 - What actually happened
-- Fusion 360 version and OS
+- Fusion version and OS
 - Relevant audit log entries (if applicable)
 
 ## License
