@@ -138,6 +138,7 @@ airgap-fusion/
 │   │   ├── save_interceptor.py# Cloud save blocking
 │   │   ├── export_manager.py  # Local file export
 │   │   ├── audit_logger.py    # JSONL compliance logging
+│   │   ├── log_verifier.py    # Audit log hash chain verification
 │   │   ├── ui_components.py   # Toolbar and button setup
 │   │   ├── persistence.py     # Crash recovery state
 │   │   ├── settings.py        # User settings management
@@ -150,14 +151,16 @@ airgap-fusion/
 │   │   ├── export_local.py    # Export dialog command
 │   │   ├── check_update.py    # Check for updates command
 │   │   ├── view_log.py        # Open audit log
-│   │   ├── verify_log.py     # Verify audit log integrity
+│   │   ├── verify_log.py      # Verify audit log integrity
 │   │   └── settings.py        # Settings dialog command
 │   └── resources/             # Toolbar icons (16x16 and 32x32 PNG)
+├── tests/                     # Unit tests (Python 3.10+, no dependencies)
 ├── docs/                      # Documentation
 │   ├── ITAR_COMPLIANCE_GUIDE.md
 │   ├── CONTRIBUTING.md
+│   ├── UNIT-TESTS.md
 │   └── RELEASE_STRATEGY.md
-├── .github/workflows/         # CI workflows
+├── .github/workflows/         # CI and test workflows
 └── ruff.toml                  # Linter configuration
 ```
 

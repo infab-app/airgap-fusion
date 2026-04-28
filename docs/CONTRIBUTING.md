@@ -84,6 +84,7 @@ airgap-fusion/
 │   │   ├── save_interceptor.py
 │   │   ├── export_manager.py
 │   │   ├── audit_logger.py
+│   │   ├── log_verifier.py
 │   │   ├── ui_components.py
 │   │   ├── persistence.py
 │   │   ├── settings.py
@@ -94,9 +95,11 @@ airgap-fusion/
 │   │   ├── stop_session.py
 │   │   ├── export_local.py
 │   │   ├── check_update.py
+│   │   ├── verify_log.py
 │   │   ├── view_log.py
 │   │   └── settings.py
 │   └── resources/           # Toolbar icons
+├── tests/                   # Unit tests (run outside Fusion 360)
 ├── docs/                    # Documentation (not included in the add-in)
 ├── .github/workflows/       # CI and release workflows
 └── ruff.toml                # Linter configuration
@@ -129,6 +132,7 @@ Every pull request to `main` runs these GitHub Actions:
 
 | Workflow | What it checks |
 |----------|---------------|
+| **Tests** | Unit tests pass on Python 3.10, 3.12, and 3.14 |
 | **Syntax Check** | All `.py` files compile on Python 3.12 |
 | **Lint** | Ruff lint rules and formatting |
 | **CodeQL** | Security analysis for common vulnerability patterns |
@@ -138,7 +142,32 @@ All checks must pass before a PR can be merged.
 
 ## Testing
 
-AirGap runs inside Fusion 360's runtime, so automated unit testing is limited. Please manually test your changes in Fusion 360 before submitting a PR:
+### Automated Unit Tests
+
+AirGap includes a test suite for core logic modules that runs outside of Fusion 360. Tests use only `unittest` (standard library) and require **Python 3.10+**.
+
+**Run all tests:**
+```
+python3 -m unittest
+```
+
+**Run with verbose output:**
+```
+python3 -m unittest discover -v
+```
+
+**Run a specific test file:**
+```
+python3 -m unittest tests.test_session_manager
+```
+
+Tests cover: state machine transitions, integrity checksums, path validation, settings persistence, session persistence, version comparison, and audit log hash chain verification. See [UNIT-TESTS.md](UNIT-TESTS.md) for full details on test structure and coverage.
+
+All tests must pass before a PR can be merged. The `Tests` CI workflow runs automatically on every pull request.
+
+### Manual Testing in Fusion 360
+
+Modules that interact directly with the Fusion 360 API (save interceptor, offline enforcer, export manager, command handlers) cannot be unit tested outside the runtime. For changes to these modules, manually test in Fusion 360 before submitting a PR:
 
 1. Load the modified add-in in Fusion 360
 2. Start and stop an AirGap session
