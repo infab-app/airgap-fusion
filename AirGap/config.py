@@ -25,8 +25,14 @@ TOOLBAR_PANEL_ID = "AirGapPanel"
 # Custom event for offline polling fallback
 CUSTOM_EVENT_OFFLINE_CHECK = "AirGap_OfflineCheck"
 
+# Custom event for save handler integrity check
+CUSTOM_EVENT_HANDLER_CHECK = "AirGap_HandlerCheck"
+
 # Polling interval for offline mode verification (seconds)
 OFFLINE_CHECK_INTERVAL = 5
+
+# Polling interval for save handler integrity check (seconds)
+HANDLER_CHECK_INTERVAL = 30
 
 # Autosave system
 CUSTOM_EVENT_AUTOSAVE = "AirGap_Autosave"
